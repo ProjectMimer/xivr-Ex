@@ -1,0 +1,45 @@
+#pragma once
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+struct stConfiguration
+{
+    bool isEnabled;
+    bool isAutoEnabled;
+    bool forceFloatingScreen;
+    bool forceFloatingInCutscene;
+    bool horizontalLock;
+    bool verticalLock;
+    bool horizonLock;
+    bool runRecenter;
+    float offsetAmountX;
+    float offsetAmountY;
+    float snapRotateAmountX;
+    float snapRotateAmountY;
+    float uiOffsetZ;
+    float uiOffsetScale;
+    bool conloc;
+    bool swapEyes;
+    bool swapEyesUI;
+    bool motioncontrol;
+    int hmdWidth;
+    int hmdHeight;
+    bool autoResize;
+    float ipdOffset;
+    bool vLog;
+    bool hmdloc;
+    bool vertloc;
+    int targetCursorSize;
+    float offsetAmountZ;
+    bool uiDepth;
+    bool hmdPointing;
+    bool mode2d;
+    bool asymmetricProjection;
+    bool immersiveMovement;
+    bool immersiveFull;
+    float offsetAmountYFPS;
+    float offsetAmountZFPS;
+    int languageType;
+    bool ultrawideshadows;
+    bool showWeaponInHand;
+};
