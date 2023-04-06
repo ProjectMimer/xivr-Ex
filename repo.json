@@ -11,13 +11,13 @@
       "utility"
     ],
     "DalamudApiLevel": 8,
-    "IconUrl": "https://github.com/ProjectMimer/xivr-Ex/raw/main/icon.png",
+    "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
     "LastUpdated": 0,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://github.com/ProjectMimer/xivr-Ex/releases/download/0.0.3.2/xivr-Ex.zip",
-    "DownloadLinkTesting": "https://github.com/ProjectMimer/xivr-Ex/releases/download/0.0.3.2/xivr-Ex.zip",
-    "DownloadLinkUpdate": "https://github.com/ProjectMimer/xivr-Ex/releases/download/0.0.3.2/xivr-Ex.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/download/0.0.3.2/xivr-Ex.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/download/0.0.3.2/xivr-Ex.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/download/0.0.3.2/xivr-Ex.zip"
   }
 ]
