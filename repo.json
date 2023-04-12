@@ -4,7 +4,7 @@
     "Name": "XIVR-Ex - VR Mod",
     "Description": "Mod to allow vr + extra options",
     "InternalName": "xivr-Ex",
-    "AssemblyVersion": "0.0.3.2",
+    "AssemblyVersion": "0.0.3.3",
     "RepoUrl": "https://github.com/ProjectMimer/xivr-Ex",
     "ApplicableVersion": "any",
     "Tags": [
