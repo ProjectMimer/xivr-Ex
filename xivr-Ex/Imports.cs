@@ -86,6 +86,9 @@ namespace xivr
         public static extern void ResizeWindow(IntPtr hwnd, int width, int height);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void MoveWindowPos(IntPtr hwnd, int adapterId, bool reset);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool SetActiveJSON([In, MarshalAs(UnmanagedType.LPUTF8Str)] string filePath, int size);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]

@@ -159,7 +159,7 @@ struct stBasicTexture
 		HRESULT result = dev->CreateDepthStencilView(pTexture, &depthStencilViewDesc, &pDepthStencilView);
 		if (FAILED(result))
 		{
-			logError << "Failed to create DepthStencilView " << std::hex << result << std::endl;
+			logError << "Failed to create DepthStencil View " << std::hex << result << std::endl;
 			return false;
 		}
 

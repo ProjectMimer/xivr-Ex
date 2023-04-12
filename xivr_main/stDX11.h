@@ -43,7 +43,8 @@ struct stDX11
 	}
 
 	bool createDevice(std::stringstream* outputLog) {
-		UINT creationFlags = 0;//D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+		UINT creationFlags = 0;
+		// D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #if defined(_DEBUG)
 		// If the project is in a debug build, enable the debug layer.
 		creationFlags |= D3D11_CREATE_DEVICE_DEBUG;

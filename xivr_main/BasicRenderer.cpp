@@ -536,9 +536,9 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 	{
 		mouseBuffer.radiusR.x = 0.0025f;
 		mouseBuffer.radiusB.x = 0.0025f;
-		if(controllerAtUI == true && dalamudMode == false)
+		if(dalamudMode == false)
 			mouseBuffer.radiusB.x = 0.0f;
-		else if (controllerAtUI == true && dalamudMode == true)
+		else if (dalamudMode == true)
 			mouseBuffer.radiusR.x = 0.0f;
 	}
 	POINT p;

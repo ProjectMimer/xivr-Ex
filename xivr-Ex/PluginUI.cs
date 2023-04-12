@@ -40,6 +40,9 @@ namespace xivr
                 if (ImGui.Checkbox(lngOptions.autoResize_Line1, ref xivr_Ex.cfg.data.autoResize))
                     xivr_Ex.Plugin.doUpdate = true;
 
+                if (ImGui.Checkbox(lngOptions.autoMove_Line1, ref xivr_Ex.cfg.data.autoMove))
+                    xivr_Ex.Plugin.doUpdate = true;
+
                 if (ImGui.Button(lngOptions.runRecenter_Line1))
                     xivr_Ex.cfg.data.runRecenter = true;
 

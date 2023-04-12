@@ -29,13 +29,13 @@ namespace xivr
         private readonly bool pluginReady = false;
         private bool isEnabled = false;
         private bool hasResized = false;
+        private bool hasMoved = false;
         private bool firstRun = false;
         private UInt64 counter = 0;
         private Point origWindowSize = new Point(0, 0);
         public bool doUpdate = false;
         public int alphaValue = 0;
-
-        
+        private int UpdateValue = 1;
 
         public unsafe xivr_Ex(DalamudPluginInterface pluginInterface, TitleScreenMenu titleScreenMenu)
         {
@@ -45,7 +45,7 @@ namespace xivr
                 DalamudApi.Initialize(this, pluginInterface);
                 cfg = DalamudApi.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
                 cfg.Initialize(DalamudApi.PluginInterface);
-
+                cfg.CheckVersion(UpdateValue);
 
                 DalamudApi.Framework.Update += Update;
                 DalamudApi.ClientState.Login += OnLogin;
@@ -100,8 +100,8 @@ namespace xivr
 
         public void ToggleConfig() => PluginUI.isVisible ^= true;
 
-        private const string subcommands = "/xivr-Ex [ on | off | recenter | hlock | vlock | horizon ]";
-        [Command("/xivr-Ex")]
+        private const string subcommands = "/xivr [ on | off | recenter | hlock | vlock | horizon ]";
+        [Command("/xivr")]
         [HelpMessage("Opens / closes the config. Additional usage: " + subcommands)]
         private unsafe void CheckCommands(string command, string argument)
         {
@@ -266,6 +266,11 @@ namespace xivr
                         doUpdate = true;
                         break;
                     }
+                case "dmode":
+                    {
+                        xivr_hooks.toggleDalamudMode();
+                        break;
+                    }
             }
         }
 
@@ -303,6 +308,13 @@ namespace xivr
                             hasResized = true;
                             PluginLog.Log($"Resizing window to: {cfg.data.hmdWidth}x{cfg.data.hmdHeight} from {origWindowSize.X}x{origWindowSize.Y}");
                         }
+
+                        if (cfg.data.autoMove)
+                        {
+                            xivr_hooks.WindowMove(false);
+                            hasMoved = true;
+                            PluginLog.Log($"Moving Window");
+                        }
                         counter--;
                     }
                     else if (counter == 25)
@@ -335,6 +347,14 @@ namespace xivr
                         PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
                         hasResized = false;
                     }
+
+                    if(hasMoved == true)
+                    {
+                        xivr_hooks.WindowMove(true);
+                        PluginLog.Log($"Resetting window position");
+                        hasMoved = false;
+                    }
+
                     isEnabled = false;
                     counter = 50;
                 }
@@ -379,6 +399,13 @@ namespace xivr
                     xivr_hooks.WindowResize(origWindowSize.X, origWindowSize.Y);
                     PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
                     hasResized = false;
+                }
+
+                if (hasMoved == true)
+                {
+                    xivr_hooks.WindowMove(true);
+                    PluginLog.Log($"Resetting window position");
+                    hasMoved = false;
                 }
             }
             DalamudApi.TitleScreenMenu.RemoveEntry(xivrMenuEntry);
