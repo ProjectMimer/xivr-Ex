@@ -2,6 +2,8 @@
 using Dalamud;
 using System.Numerics;
 using xivr.Structures;
+using Dalamud.Logging;
+using System;
 
 namespace xivr.StructuresEx
 {
@@ -9,6 +11,8 @@ namespace xivr.StructuresEx
     {
         private LayoutWorld* worldLayout = null;
         private Vector3 controllerPosition = new Vector3(0, 0, 0);
+        private Vector3 controllerAngles = new Vector3(0, 0, 0);
+        private float halfPI = (MathF.PI / 2.0f);
 
         public bool Initalize(string g_LayoutWorld)
         {
@@ -29,18 +33,32 @@ namespace xivr.StructuresEx
                 Matrix4x4 playerRot = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), player.Rotation);
                 playerRot.Translation = player.Position;
 
+                Vector3 lhcAngles = xivr_hooks.GetAngles(lhcMatrix);
                 Vector3 rhcVector = Vector3.Transform(new Vector3(rhcMatrix.Translation.X * -1, rhcMatrix.Translation.Y, rhcMatrix.Translation.Z * -1), playerRot);
                 if (worldLayout->housing->selectedTarget != null && xboxStatus.right_bumper.active == true)
                 {
                     Vector3 frameMove = rhcVector - controllerPosition;
                     Vector3 curPos = worldLayout->housing->selectedTarget->basePosition.Translation.Convert();
 
-                    if (xboxStatus.left_bumper.active == true)
+                    if (xboxStatus.right_bumper.value >= 0.95f)
                         worldLayout->housing->selectedTarget->basePosition.Translation = (curPos + (frameMove * 2.0f)).Convert();
                     else
                         worldLayout->housing->selectedTarget->basePosition.Translation = (curPos + frameMove).Convert();
                 }
+
+                if (worldLayout->housing->selectedTarget != null && xboxStatus.left_bumper.active == true)
+                {
+                    Vector3 frameMove = lhcAngles - controllerAngles;
+                    if (xboxStatus.left_bumper.value >= 0.95f)
+                        frameMove *= 2;
+
+                    Quaternion frameRot = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), -frameMove.Y);
+                    Quaternion curRot = worldLayout->housing->selectedTarget->basePosition.Rotation.Convert();
+
+                    worldLayout->housing->selectedTarget->basePosition.Rotation = (curRot * frameRot).Convert();
+                }
                 controllerPosition = rhcVector;
+                controllerAngles = lhcAngles;
             }
         }
     }

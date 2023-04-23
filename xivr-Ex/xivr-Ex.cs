@@ -246,6 +246,12 @@ namespace xivr
                         cfg.Save(); doUpdate = true;
                         break;
                     }
+                case "headcontoggle":
+                    {
+                        cfg.data.hmdloc = !cfg.data.hmdloc;
+                        cfg.Save(); doUpdate = true;
+                        break;
+                    }
                 case "ipd":
                     {
                         float.TryParse(regex.Groups[2].Value, out var amount);

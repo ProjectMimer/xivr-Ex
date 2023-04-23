@@ -141,7 +141,7 @@
             },
             {
                "inputs" : {
-                  "click" : {
+                  "pull" : {
                      "output" : "/actions/game/in/xbox_right_bumper"
                   }
                },
@@ -150,7 +150,7 @@
             },
             {
                "inputs" : {
-                  "click" : {
+                  "pull" : {
                      "output" : "/actions/game/in/xbox_left_bumper"
                   }
                },
@@ -349,7 +349,7 @@
    "controller_type" : "oculus_touch",
    "description" : "\n\n",
    "interaction_profile" : "",
-   "name" : "XIVR Default Touch Bindings",
+   "name" : "Oculus Touchコントローラー用に保存されたffxiv_dx11設定",
    "options" : {},
    "simulated_actions" : []
 }

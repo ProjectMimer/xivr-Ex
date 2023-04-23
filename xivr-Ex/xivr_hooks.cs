@@ -112,6 +112,9 @@ namespace xivr
         private UInt64 DisableSetCursorPosOrig = 0;
         private UInt64 DisableSetCursorPosOverride = 0x05C6909090909090;
         private UInt64 DisableSetCursorPosAddr = 0;
+        private UInt64 DisableCameraCollisionOrig = 0;
+        private UInt64 DisableCameraCollisionOverride = 0x4801000000888880;
+        private UInt64 DisableCameraCollisionAddr = 0;
 
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
@@ -166,7 +169,8 @@ namespace xivr
             internal const string g_ControlSystemCameraManager = "48 8D 0D ?? ?? ?? ?? F3 0F 10 4B ??";
             internal const string g_SelectScreenCharacterList = "4C 8D 35 ?? ?? ?? ?? BF C8 00 00 00";
             internal const string g_DisableSetCursorPosAddr = "FF ?? ?? ?? ?? 00 C6 05 ?? ?? ?? ?? 00 0F B6 43 38";
-            
+            internal const string g_DisableCameraCollisionAddr = "80 A0 88 00 00 00 FE 48 8B 89 00 01 00 00";
+
 
             internal const string GetCutsceneCameraOffset = "E8 ?? ?? ?? ?? 48 8B 70 48 48 85 F6";
             internal const string GameObjectGetPosition = "83 79 7C 00 75 09 F6 81 ?? ?? ?? ?? ?? 74 2A";
@@ -290,7 +294,8 @@ namespace xivr
                 charList = (CharSelectionCharList*)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
                 DisableSetCursorPosAddr = (UInt64)DalamudApi.SigScanner.ScanText(Signatures.g_DisableSetCursorPosAddr);
                 DisableSetCursorPosOrig = *(UInt64*)DisableSetCursorPosAddr;
-
+                DisableCameraCollisionAddr = (UInt64)DalamudApi.SigScanner.ScanText(Signatures.g_DisableCameraCollisionAddr);
+                DisableCameraCollisionOrig = *(UInt64*)DisableCameraCollisionAddr;
                 renderTargetManager = *(Structures.RenderTargetManager**)RenderTargetManagerAddress;
                 
 
@@ -380,7 +385,8 @@ namespace xivr
                 SetRenderingMode();
 
                 SavedSettings[ConfigOption.MouseOpeLimit] = ConfigModule.Instance()->GetIntValue(ConfigOption.MouseOpeLimit);
-                ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 0);
+                if (ConfigModule.Instance()->GetIntValue(ConfigOption.Gamma) == 50)
+                    ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 49);
                 ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
                 ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 1);
 
@@ -394,6 +400,8 @@ namespace xivr
                     attrib.Value(true);
 
                 hooksSet = true;
+                if (DalamudApi.ClientState.LocalPlayer)
+                    OnLogin(null, new EventArgs());
                 PrintEcho("Starting VR.");
             }
             if (xivr_Ex.cfg.data.vLog)
@@ -483,7 +491,7 @@ namespace xivr
                 */
 
                 Imports.UnsetDX11();
-
+                OnLogout(null, new EventArgs());
                 hooksSet = false;
                 PrintEcho("Stopping VR.");
             }
@@ -1331,10 +1339,20 @@ namespace xivr
         }
         public void OnLogin(object? sender, EventArgs e)
         {
+            if (hooksSet)
+            {
+                if (DisableCameraCollisionAddr != 0)
+                    SafeMemory.Write<UInt64>((IntPtr)DisableCameraCollisionAddr, DisableCameraCollisionOverride);
+            }
         }
 
         public void OnLogout(object? sender, EventArgs e)
         {
+            if (hooksSet)
+            {
+                if (DisableCameraCollisionAddr != 0)
+                    SafeMemory.Write<UInt64>((IntPtr)DisableCameraCollisionAddr, DisableCameraCollisionOrig);
+            }
         }
 
         public void Dispose()
@@ -1864,9 +1882,6 @@ namespace xivr
         // This function is also called for ui character stuff so only
         // act on it the first time its run per frame
         //----
-        float CameraHitBoxOffset = 0.0f;
-        float rawCameraHitBoxOffset = -10.0f;
-
         private void CalculateViewMatrixFn(RawGameCamera* rawGameCamera)
         {
             if (enableVR && frfCalculateViewMatrix == false)
@@ -1881,23 +1896,9 @@ namespace xivr
                 Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
                 frfCalculateViewMatrix = true;
 
-                //----
-                // Restore the camera to its prooper spot if disabled for collisions in first person
-                //----
-                if (csCameraManager->ActiveCameraIndex == 0 && gameMode.Current == CameraModes.FirstPerson)
-                {
-                    rawGameCamera->Position.Y += CameraHitBoxOffset;
-                    rawGameCamera->LookAt.Y += CameraHitBoxOffset;
-                }
-
                 rawGameCamera->ViewMatrix = Matrix4x4.Identity;
                 CalculateViewMatrixHook!.Original(rawGameCamera);
 
-                if (csCameraManager->ActiveCameraIndex == 0 && gameMode.Current == CameraModes.FirstPerson)
-                {
-                    rawGameCamera->Position.Y -= CameraHitBoxOffset;
-                    rawGameCamera->LookAt.Y -= CameraHitBoxOffset;
-                }
                 firstPersonCameraHeight = rawGameCamera->Position.Y;
 
                 if (enableFloatingHUD && forceFloatingScreen == false)
@@ -1975,45 +1976,6 @@ namespace xivr
                 CalculateViewMatrixHook!.Original(rawGameCamera);
             }
         }
-
-
-        //----
-        // GetCameraPosition
-        //----
-        private delegate void GetCameraPositionDg(GameCamera* gameCamera, IntPtr target, Vector3* vectorPosition, bool swapPerson);
-        private Hook<GetCameraPositionDg>? GetCameraPositionHook = null;
-
-        [HandleStatus("GetCameraPosition")]
-        public void GetCameraPositionStatus(bool status)
-        {
-            if (status == true)
-            {
-                if (GetCameraPositionHook == null)
-                    GetCameraPositionHook = Hook<GetCameraPositionDg>.FromAddress((IntPtr)csCameraManager->GameCamera->CameraBase.vtbl[15], GetCameraPositionFn);
-                GetCameraPositionHook?.Enable();
-            }
-            else
-                GetCameraPositionHook?.Disable();
-        }
-
-        private void GetCameraPositionFn(GameCamera* gameCamera, IntPtr target, Vector3* vectorPosition, bool swapPerson)
-        {
-            GetCameraPositionHook!.Original(gameCamera, target, vectorPosition, swapPerson);
-
-            //----
-            // Move the camera position to disable collisions in first person
-            //----
-            if (csCameraManager->ActiveCameraIndex == 0 && gameMode.Current == CameraModes.FirstPerson)
-            {
-                if (isMounted)
-                    CameraHitBoxOffset = rawCameraHitBoxOffset;
-                else
-                    CameraHitBoxOffset = neckPosition.Y + 0.5f;
-                vectorPosition->Y -= CameraHitBoxOffset;
-            }
-        }
-
-
 
         //----
         // Camera UpdateRotation
