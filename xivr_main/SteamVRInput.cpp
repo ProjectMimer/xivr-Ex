@@ -56,6 +56,9 @@ void setActionHandlesGame(inputController* input)
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_start", &input->game.xbox_start);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/xbox_select", &input->game.xbox_select);
 
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/thumbrest_left", &input->game.thumbrest_left);
+		iError = vr::VRInput()->GetActionSetHandle("/actions/game/in/thumbrest_right", &input->game.thumbrest_right);
+
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/out/haptic_left", &input->game.haptic_left);
 		iError = vr::VRInput()->GetActionSetHandle("/actions/game/out/haptic_right", &input->game.haptic_right);
 

@@ -165,6 +165,14 @@ namespace xivr
             if (ImGui.SliderFloat("##DrawUISetings:fpszoff", ref xivr_Ex.cfg.data.offsetAmountZFPS, -150, 150, "%.0f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
+            ImGui.Text(lngOptions.offsetAmountYFPSMount_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:mountyoff", ref xivr_Ex.cfg.data.offsetAmountYFPSMount, -150, 150, "%.0f"))
+                xivr_Ex.Plugin.doUpdate = true;
+
+            ImGui.Text(lngOptions.offsetAmountZFPSMount_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:mountzoff", ref xivr_Ex.cfg.data.offsetAmountZFPSMount, -150, 150, "%.0f"))
+                xivr_Ex.Plugin.doUpdate = true;
+
             ImGui.Text(lngOptions.targetCursorSize_Line1); ImGui.SameLine();
             if (ImGui.SliderInt("##DrawUISetings:targetcur", ref xivr_Ex.cfg.data.targetCursorSize, 50, 255))
                 xivr_Ex.Plugin.doUpdate = true;

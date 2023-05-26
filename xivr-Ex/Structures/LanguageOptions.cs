@@ -14,6 +14,10 @@ namespace xivr.Structures
         public string runRecenter_Line1;
         public string offsetAmountX_Line1;
         public string offsetAmountY_Line1;
+        public string offsetAmountYFPS_Line1;
+        public string offsetAmountZFPS_Line1;
+        public string offsetAmountYFPSMount_Line1;
+        public string offsetAmountZFPSMount_Line1;
         public string snapRotateAmountX_Line1;
         public string snapRotateAmountX_Line2;
         public string snapRotateAmountX_Line3;
@@ -41,8 +45,6 @@ namespace xivr.Structures
         public string asymmetricProjection_Line1;
         public string immersiveMovement_Line1;
         public string immersiveFull_Line1;
-        public string offsetAmountYFPS_Line1;
-        public string offsetAmountZFPS_Line1;
         public string languageType_Line1;
         public string ultrawideshadows_Line1;
         public string showWeaponInHand_Line1;
@@ -86,6 +88,8 @@ namespace xivr.Structures
                     offsetAmountZ_Line1 = "3rd Person Z Offset",
                     offsetAmountYFPS_Line1 = "1st Person Y Offset",
                     offsetAmountZFPS_Line1 = "1st Person Z Offset",
+                    offsetAmountYFPSMount_Line1 = "1st Person Mount Y Offset",
+                    offsetAmountZFPSMount_Line1 = "1st Person Mount Z Offset",
                     targetCursorSize_Line1 = "Target Cursor Size",
                     asymmetricProjection_Line1 = "Asymmetric Projection - Requires XIVR Restart",
                     ultrawideshadows_Line1 = "Ultrawide Shadows",
@@ -127,6 +131,8 @@ namespace xivr.Structures
                     offsetAmountZ_Line1 = "三人称Z軸補正",
                     offsetAmountYFPS_Line1 = "一人称Y軸補正",
                     offsetAmountZFPS_Line1 = "一人称Z軸補正",
+                    offsetAmountYFPSMount_Line1 = "一人称マウントY軸補正",
+                    offsetAmountZFPSMount_Line1 = "一人称マウントZ軸補正",
                     targetCursorSize_Line1 = "ターゲットカーソルサイズ",
                     asymmetricProjection_Line1 = "非対称映写（2Dモード非対応）XIVR再起動必須",
                     ultrawideshadows_Line1 = "ウルトラワイド影",

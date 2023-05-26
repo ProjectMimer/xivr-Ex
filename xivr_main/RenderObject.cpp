@@ -14,7 +14,7 @@ bool RenderObject::SetVertexBuffer(std::vector<float> vertices, int itmStride, D
 	vertexList = vertices;
 	stride = itmStride;
 	byteStride = stride * sizeof(float);
-	vertexCount = vertices.size() / stride;
+	vertexCount = (int)vertices.size() / stride;
 	int byteWidth = vertexCount * byteStride;
 
 	vertexSet = false;
@@ -46,7 +46,7 @@ int RenderObject::GetVertexCount()
 bool RenderObject::SetIndexBuffer(std::vector<short> indices, D3D11_USAGE usage)
 {
 	indexList = indices;
-	indexCount = indices.size();
+	indexCount = (int)indices.size();
 	int byteWidth = indexCount * sizeof(short);
 	
 	indexSet = false;
@@ -328,6 +328,26 @@ RenderCurvedUI::RenderCurvedUI(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon)
 	};
 
 	std::vector<short> indices1 =
+	{
+		0, 1, 2,
+		2, 3, 0
+	};
+	SetIndexBuffer(indices);
+}
+
+RenderOSK::RenderOSK(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon) : RenderObject(tdev, tdevcon)
+{
+	std::vector<float> vertices =
+	{
+		 -1, -1, 0,		0, 1,
+		 -1,  1, 0,		0, 0,
+		  1,  1, 0,		1, 0,
+		  1, -1, 0,		1, 1,
+	};
+	SetVertexBuffer(vertices, 5);
+
+
+	std::vector<short> indices =
 	{
 		0, 1, 2,
 		2, 3, 0

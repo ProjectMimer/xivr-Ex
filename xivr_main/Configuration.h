@@ -28,6 +28,8 @@ struct stConfiguration
 	float offsetAmountZ;
 	float offsetAmountYFPS;
 	float offsetAmountZFPS;
+	float offsetAmountYFPSMount;
+	float offsetAmountZFPSMount;
 	float snapRotateAmountX;
 	float snapRotateAmountY;
 	bool uiDepth;
@@ -44,4 +46,5 @@ struct stConfiguration
 	bool immersiveMovement;
 	bool immersiveFull;
 	bool ultrawideshadows;
+	bool osk;
 };

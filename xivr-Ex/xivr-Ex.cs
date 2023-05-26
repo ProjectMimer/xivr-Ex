@@ -23,10 +23,10 @@ namespace xivr
 
         public static Configuration cfg { get; private set; }
 
-        TitleScreenMenu.TitleScreenMenuEntry xivrMenuEntry;
+        TitleScreenMenu.TitleScreenMenuEntry? xivrMenuEntry;
         xivr_hooks xivr_hooks = new xivr_hooks();
 
-        private readonly bool pluginReady = false;
+        private bool pluginReady = false;
         private bool isEnabled = false;
         private bool hasResized = false;
         private bool hasMoved = false;
@@ -46,6 +46,13 @@ namespace xivr
                 cfg = DalamudApi.PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
                 cfg.Initialize(DalamudApi.PluginInterface);
                 cfg.CheckVersion(UpdateValue);
+
+                //UInt64 BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
+                //IntPtr factoryOffset = (IntPtr)BaseAddress + 0x18D2C98;
+                //PluginLog.Log($"LoadData - {factoryOffset:x}");
+                //short sBytes = *(short*)factoryOffset;
+                //PluginLog.Log($"LoadData - {factoryOffset:x} - {sBytes:x}");
+                //SafeMemory.Write<short>(factoryOffset, (short)(sBytes + 0x1A0));
 
                 DalamudApi.Framework.Update += Update;
                 DalamudApi.ClientState.Login += OnLogin;
@@ -268,13 +275,18 @@ namespace xivr
                 case "resetconfig":
                     {
                         cfg.data = new cfgData();
-                        cfg.Save();
-                        doUpdate = true;
+                        cfg.Save(); doUpdate = true;
                         break;
                     }
                 case "dmode":
                     {
                         xivr_hooks.toggleDalamudMode();
+                        break;
+                    }
+                case "osk":
+                    {
+                        cfg.data.osk = !cfg.data.osk;
+                        cfg.Save(); doUpdate = true;
                         break;
                     }
             }

@@ -4,7 +4,7 @@
     "Name": "XIVR-Ex - VR Mod",
     "Description": "Mod to allow vr + extra options",
     "InternalName": "xivr-Ex",
-    "AssemblyVersion": "0.0.3.4",
+    "AssemblyVersion": "0.0.4.0",
     "RepoUrl": "https://github.com/ProjectMimer/xivr-Ex",
     "ApplicableVersion": "any",
     "Tags": [
@@ -14,10 +14,31 @@
     "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1682233223,
+    "LastUpdated": 1685092285,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.3.4/xivr-Ex.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.3.4/xivr-Ex.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.3.4/xivr-Ex.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.0/xivr-Ex.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.0/xivr-Ex.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.0/xivr-Ex.zip"
+  },
+  {
+    "Author": "Marulu, StreetRat",
+    "Name": "XIVR Preload - VR Mod",
+    "Description": "Required to load some settings before XIVR loads.\n XIVLauncher needs to start Dalamud using the 'New' injection mode and in the Dalamud settings in the general tab 'wait for plugins before game loads' needs to be enabled.",
+    "InternalName": "xivr-Ex",
+    "AssemblyVersion": "0.0.4.0",
+    "RepoUrl": "https://github.com/ProjectMimer/xivr_preload",
+    "ApplicableVersion": "any",
+    "Tags": [
+      "utility"
+    ],
+    "DalamudApiLevel": 8,
+    "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
+    "IsHide": "False",
+    "IsTestingExclusive": "False",
+    "LastUpdated": 1685092285,
+    "DownloadCount": 0,
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.0/xivr_preload.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.0/xivr_preload.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.0/xivr_preload.zip"
   }
 ]

@@ -38,6 +38,8 @@ namespace xivr
             [MarshalAs(UnmanagedType.R4)] public float offsetAmountZ;
             [MarshalAs(UnmanagedType.R4)] public float offsetAmountYFPS;
             [MarshalAs(UnmanagedType.R4)] public float offsetAmountZFPS;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountYFPSMount;
+            [MarshalAs(UnmanagedType.R4)] public float offsetAmountZFPSMount;
             [MarshalAs(UnmanagedType.R4)] public float snapRotateAmountX;
             [MarshalAs(UnmanagedType.R4)] public float snapRotateAmountY;
             [MarshalAs(UnmanagedType.U1)] public bool uiDepth;
@@ -54,6 +56,7 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool immersiveMovement;
             [MarshalAs(UnmanagedType.U1)] public bool immersiveFull;
             [MarshalAs(UnmanagedType.U1)] public bool ultrawideshadows;
+            [MarshalAs(UnmanagedType.U1)] public bool osk;
 
             public cfgData()
             {
@@ -81,6 +84,8 @@ namespace xivr
                 offsetAmountZ = 0.0f;
                 offsetAmountYFPS = 0;
                 offsetAmountZFPS = 0;
+                offsetAmountYFPSMount = 0;
+                offsetAmountZFPSMount = 0;
                 snapRotateAmountX = 45.0f;
                 snapRotateAmountY = 15.0f;
                 uiDepth = true;
@@ -97,6 +102,7 @@ namespace xivr
                 immersiveMovement = false;
                 immersiveFull = false;
                 ultrawideshadows = false;
+                osk = false;
             }
         }
 

@@ -58,6 +58,9 @@ struct inputActionGame
 	vr::VRActionHandle_t xbox_start;
 	vr::VRActionHandle_t xbox_select;
 
+	vr::VRActionHandle_t thumbrest_left;
+	vr::VRActionHandle_t thumbrest_right;
+
 	vr::VRActionHandle_t haptic_left;
 	vr::VRActionHandle_t haptic_right;
 
@@ -111,8 +114,52 @@ enum buttonLayout
 	xbox_pad_right,
 	xbox_start,
 	xbox_select,
+	thumbrest_left,
+	thumbrest_right,
 	haptic_left,
-	haptic_right
+	haptic_right,
+	watch_audio,
+	watch_dalamud,
+	watch_keyboard,
+	watch_occlusion,
+	watch_recenter,
+	watch_xivr
+};
+
+enum skeletalFingerLayout
+{
+	root,
+	wrist,
+	thumbMetacarpal,
+	thumbProximal,
+	thumbMiddle,
+	thumbDistal,
+	thumbTip,
+	indexMetacarpal,
+	indexProximal,
+	indexMiddle,
+	indexDistal,
+	indexTip,
+	middleMetacarpal,
+	middleProximal,
+	middleMiddle,
+	middleDistal,
+	middleTip,
+	ringMetacarpal,
+	ringProximal,
+	ringMiddle,
+	ringDistal,
+	ringTip,
+	pinkyMetacarpal,
+	pinkyProximal,
+	pinkyMiddle,
+	pinkyDistal,
+	pinkyTip,
+	thumbAux,
+	indexAux,
+	middleAux,
+	ringAux,
+	pinkyAux
 };
 
 void setActionHandlesGame(inputController* input);

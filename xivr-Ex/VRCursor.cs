@@ -13,8 +13,6 @@ namespace xivr
     {
         private static NamePlateObject* currentNPTarget = null;
 
-        
-
         public static unsafe bool SetupVRTargetCursor(AtkTextNode** vrTrgCursor)
         {
             if ((*vrTrgCursor) != null)

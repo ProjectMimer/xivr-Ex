@@ -13,6 +13,5 @@
 #include "stMonitorLayout.h"
 void forceFlush();
 
-#include "stDX11.h"
 #include "Configuration.h"
 #include "ffxivCameraManager.h"

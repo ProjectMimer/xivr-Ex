@@ -10,7 +10,7 @@ namespace xivr.StructuresEx
 
         private static class Signatures
         {
-            internal const string g_LayoutWorld = "48 8B 0D ?? ?? ?? ?? 85 D2";
+            internal const string g_LayoutWorld = "4C 8B 05 ?? ?? ?? ?? 85 C9 74 ??";
         }
 
         public bool Initalize()

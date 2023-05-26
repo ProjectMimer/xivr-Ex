@@ -38,16 +38,24 @@ namespace xivr
         [DllImport("user32.dll")]
         public static extern bool GetClientRect(IntPtr hwnd, out Rectangle lpRect);
 
+        [DllImport("kernel32.dll", EntryPoint = "RtlZeroMemory")]
+        public unsafe static extern bool ZeroMemory(byte* destination, int length);
 
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateConfiguration(Configuration.cfgData config);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern bool SetDX11(IntPtr Device, IntPtr rtManager);
+        public static extern bool SetDX11(IntPtr Device, IntPtr rtManager, [In, MarshalAs(UnmanagedType.LPUTF8Str)] string dllPath);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UnsetDX11();
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern Structures.Texture* GetRenderTexture(int eye);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern Structures.Texture* GetDepthTexture(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern Structures.Texture* GetUIRenderTexture(int eye);
@@ -63,6 +71,9 @@ namespace xivr
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern Matrix4x4 GetFramePose(poseType posetype, int eye);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern fingerHandLayout GetSkeletalPose(poseType poseType);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetThreadedEye(int eye);

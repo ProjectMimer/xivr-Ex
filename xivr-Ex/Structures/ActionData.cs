@@ -45,9 +45,17 @@ namespace xivr.Structures
 		xbox_pad_right,
 		xbox_start,
 		xbox_select,
+		thumbrest_left,
+		thumbrest_right,
 		haptics_left,
-		haptics_right
-	}
+		haptics_right,
+		watch_audio,
+        watch_dalamud,
+        watch_keyboard,
+        watch_occlusion,
+        watch_recenter,
+		watch_xivr
+    }
 
 
 	public struct InputDigitalActionData

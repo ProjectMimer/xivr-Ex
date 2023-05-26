@@ -12,17 +12,20 @@ using Dalamud.Hooking;
 using Dalamud.Logging;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.Havok;
+using FFXIVClientStructs.Interop.Attributes;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using xivr.Structures;
 using xivr.StructuresEx;
+using Microsoft.VisualBasic;
+
 
 namespace xivr
 {
@@ -81,9 +84,8 @@ namespace xivr
         private bool initalized = false;
         private bool hooksSet = false;
         private bool enableVR = true;
-        private bool enableFloatingHUD = true;
         private bool forceFloatingScreen = false;
-        private bool inCutscene = false;
+        
         private bool isMounted = false;
         private bool housingMode = false;
         private bool dalamudMode = false;
@@ -96,10 +98,10 @@ namespace xivr
         private float Rad2Deg = 180.0f / MathF.PI;
         private float cameraZoom = 0.0f;
         private float leftBumperValue = 0.0f;
-        private float firstPersonCameraHeight = 0.0f;
         private float BridgeBoneHeight = 0.0f;
         private ChangedTypeBool mouseoverUI = new ChangedTypeBool();
         private ChangedTypeBool mouseoverTarget = new ChangedTypeBool();
+        private ChangedTypeBool inCutscene = new ChangedTypeBool();
         private Vector2 rotateAmount = new Vector2(0.0f, 0.0f);
         private Point virtualMouse = new Point(0, 0);
         private Point actualMouse = new Point(0, 0);
@@ -112,9 +114,6 @@ namespace xivr
         private UInt64 DisableSetCursorPosOrig = 0;
         private UInt64 DisableSetCursorPosOverride = 0x05C6909090909090;
         private UInt64 DisableSetCursorPosAddr = 0;
-        private UInt64 DisableCameraCollisionOrig = 0;
-        private UInt64 DisableCameraCollisionOverride = 0x4801000000888880;
-        private UInt64 DisableCameraCollisionAddr = 0;
 
         private const int FLAG_INVIS = (1 << 1) | (1 << 11);
         private const byte NamePlateCount = 50;
@@ -151,7 +150,7 @@ namespace xivr
                                                          0, 0, 0, 1);
 
         private ExclusiveExtras exExtras = new ExclusiveExtras();
-        private SceneCameraManager* camInst = null;
+        private SceneCameraManager* scCameraManager = null;
         private ControlSystemCameraManager* csCameraManager = null;
         private TargetSystem* targetSystem = TargetSystem.Instance();
         private Structures.RenderTargetManager* renderTargetManager = null;
@@ -169,24 +168,19 @@ namespace xivr
             internal const string g_ControlSystemCameraManager = "48 8D 0D ?? ?? ?? ?? F3 0F 10 4B ??";
             internal const string g_SelectScreenCharacterList = "4C 8D 35 ?? ?? ?? ?? BF C8 00 00 00";
             internal const string g_DisableSetCursorPosAddr = "FF ?? ?? ?? ?? 00 C6 05 ?? ?? ?? ?? 00 0F B6 43 38";
-            internal const string g_DisableCameraCollisionAddr = "80 A0 88 00 00 00 FE 48 8B 89 00 01 00 00";
-
 
             internal const string GetCutsceneCameraOffset = "E8 ?? ?? ?? ?? 48 8B 70 48 48 85 F6";
             internal const string GameObjectGetPosition = "83 79 7C 00 75 09 F6 81 ?? ?? ?? ?? ?? 74 2A";
             internal const string GetTargetFromRay = "E8 ?? ?? ?? ?? 84 C0 74 ?? 48 8B F3";
             internal const string GetMouseOverTarget = "E8 ?? ?? ?? ?? 48 8B D8 48 85 DB 74 ?? 48 8B CB";
             internal const string ScreenPointToRay = "E8 ?? ?? ?? ?? 4C 8B E0 48 8B EB";
-            internal const string ScreenPointToRay1 = "E8 ?? ?? ?? ?? 80 BF 74 01 00 00 00";
+            internal const string ScreenPointToRay1 = "E8 ?? ?? ?? ?? F3 0F 10 45 A7 F3 0f 10 4D AB";
             internal const string MousePointScreenToClient = "E8 ?? ?? ?? ?? 0f B7 44 24 50 66 89 83 98 09 00 00";
 
-
-            internal const string DisableLeftClick = "E8 ?? ?? ?? ?? BA ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 84 C0 74 16";
-            internal const string DisableRightClick = "E8 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? 48 85 C0 74 1B";
             internal const string SetRenderTarget = "E8 ?? ?? ?? ?? 40 38 BC 24 00 02 00 00";
             internal const string AllocateQueueMemory = "E8 ?? ?? ?? ?? 48 85 C0 74 ?? C7 00 04 00 00 00";
             internal const string Pushback = "E8 ?? ?? ?? ?? EB ?? 8B 87 6C 04 00 00";
-            internal const string PushbackUI = "E8 ?? ?? ?? ?? EB 05 E8 ?? ?? ?? ?? 48 8B 5C 24 78";
+            internal const string PushbackUI = "E8 ?? ?? ?? ?? EB 05 E8 ?? ?? ?? ?? 4C 8D 5C 24 50";
             internal const string OnRequestedUpdate = "48 8B C4 41 56 48 81 EC ?? ?? ?? ?? 48 89 58 F0";
             internal const string DXGIPresent = "E8 ?? ?? ?? ?? C6 47 79 00 48 8B 8F";
             internal const string RenderThreadSetRenderTarget = "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 41 0F 10 5A 18";
@@ -207,9 +201,10 @@ namespace xivr
             internal const string EquipGearsetInternal = "E8 ?? ?? ?? ?? C7 87 08 01 00 00 00 00 00 00 C6 46 08 01 E9 ?? ?? ?? ?? 41 8B 4E 04";
             internal const string GetAnalogueValue = "E8 ?? ?? ?? ?? 66 44 0F 6E C3";
             internal const string ControllerInput = "E8 ?? ?? ?? ?? 41 8B 86 3C 04 00 00";
-
+            
             internal const string PhysicsBoneUpdate = "E8 ?? ?? ?? ?? 48 8D 93 90 00 00 00 4C 8D 43 40";
             internal const string RunGameTasks = "E8 ?? ?? ?? ?? 48 8B 8B B8 35 00 00";
+            internal const string RootTaskDrawLoop = "40 53 48 83 EC 20 FF 81 C8 16 00 00 48 8B D9 48 8D 4C 24 30";
         }
 
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[xivr] {message}");
@@ -271,8 +266,6 @@ namespace xivr
             }
         }
 
-
-        
         public bool Initialize()
         {
             if (xivr_Ex.cfg.data.vLog)
@@ -285,7 +278,7 @@ namespace xivr
                 BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
 
                 IntPtr tmpAddress = DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_SceneCameraManagerInstance);
-                camInst = (SceneCameraManager*)(*(UInt64*)tmpAddress);
+                scCameraManager = (SceneCameraManager*)(*(UInt64*)tmpAddress);
 
                 tls_index = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_tls_index);
                 globalScaleAddress = (UInt64)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_TextScale);
@@ -294,10 +287,7 @@ namespace xivr
                 charList = (CharSelectionCharList*)DalamudApi.SigScanner.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
                 DisableSetCursorPosAddr = (UInt64)DalamudApi.SigScanner.ScanText(Signatures.g_DisableSetCursorPosAddr);
                 DisableSetCursorPosOrig = *(UInt64*)DisableSetCursorPosAddr;
-                DisableCameraCollisionAddr = (UInt64)DalamudApi.SigScanner.ScanText(Signatures.g_DisableCameraCollisionAddr);
-                DisableCameraCollisionOrig = *(UInt64*)DisableCameraCollisionAddr;
                 renderTargetManager = *(Structures.RenderTargetManager**)RenderTargetManagerAddress;
-                
 
                 curRenderMode = RenderModes.None;
                 GetThreadedDataInit();
@@ -370,7 +360,7 @@ namespace xivr
                 if (xivr_Ex.cfg.data.vLog)
                     PluginLog.Log($"SetDX Dx: {(IntPtr)Device.Instance():X} | RndTrg:{*(IntPtr*)RenderTargetManagerAddress:X}");
 
-                if (!Imports.SetDX11((IntPtr)Device.Instance(), *(IntPtr*)RenderTargetManagerAddress))
+                if (!Imports.SetDX11((IntPtr)Device.Instance(), *(IntPtr*)RenderTargetManagerAddress, DalamudApi.PluginInterface.AssemblyLocation.DirectoryName!))
                     return false;
 
                 string filePath = Path.Join(DalamudApi.PluginInterface.AssemblyLocation.DirectoryName, "config", "actions.json");
@@ -472,23 +462,6 @@ namespace xivr
                 FirstToThirdPersonView();
                 if (DisableSetCursorPosAddr != 0)
                     SafeMemory.Write<UInt64>((IntPtr)DisableSetCursorPosAddr, DisableSetCursorPosOrig);
-
-                /*
-                Dictionary<string, bool> singleNames = new Dictionary<string, bool>();
-                foreach (KeyValuePair<hkaPose, Dictionary<string, int>> names in boneNames)
-                {
-                    foreach (KeyValuePair<string, int> innernames in names.Value)
-                    {
-                        if(!singleNames.ContainsKey(innernames.Key))
-                            singleNames.Add(innernames.Key, true);
-                    }
-                }
-
-                foreach (KeyValuePair<string, bool> innernames in singleNames)
-                {
-                    PluginLog.Log($"{innernames.Key}");
-                }
-                */
 
                 Imports.UnsetDX11();
                 OnLogout(null, new EventArgs());
@@ -627,7 +600,7 @@ namespace xivr
                 Bone[] boneArray = new Bone[objPose->LocalPose.Length];
                 for (short i = 0; i < objPose->LocalPose.Length; i++)
                 {
-                    string boneName = objPose->Skeleton->Bones[i].Name.String;
+                    string boneName = objPose->Skeleton->Bones[i].Name.String!;
                     short parentId = objPose->Skeleton->ParentIndices[i];
 
                     if (!boneNameToEnum.ContainsKey(boneName))
@@ -735,7 +708,6 @@ namespace xivr
         }
 
         private ChangedType<CameraModes> gameMode = new ChangedType<CameraModes>(CameraModes.None);
-
         
         bool outputBonesOnce = false;
         public void Update(Dalamud.Game.Framework framework_)
@@ -743,21 +715,12 @@ namespace xivr
             if (hooksSet)
             {
                 Imports.UpdateController(controllerCallback);
-
-                if (curEye == 0)
-                {
-                    hmdMatrix = Imports.GetFramePose(poseType.hmdPosition, -1);
-                    lhcMatrix = Imports.GetFramePose(poseType.LeftHand, -1);
-                    rhcMatrix = Imports.GetFramePose(poseType.RightHand, -1);
-                    Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
-                }
-                Matrix4x4 hmdFlip = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), 90 * Deg2Rad) * Matrix4x4.CreateFromAxisAngle(new Vector3(0, 0, 1), -90 * Deg2Rad);
-                Matrix4x4 hmdMatrixBody = hmdFlip * hmdMatrixI;
-                Matrix4x4 lhcMatrixCXZ = convertXZ * lhcMatrix * convertXZ;
-                Matrix4x4 rhcMatrixCXZ = convertXZ * rhcMatrix * convertXZ;
+                hmdMatrix = Imports.GetFramePose(poseType.hmdPosition, -1);
+                lhcMatrix = Imports.GetFramePose(poseType.LeftHand, -1);
+                rhcMatrix = Imports.GetFramePose(poseType.RightHand, -1);
+                Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
 
                 frfCalculateViewMatrix = false;
-
 
                 ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
                 Point halfScreen = new Point();
@@ -778,17 +741,27 @@ namespace xivr
                 virtualMouse.X = halfScreen.X + ((currentMouse.X - halfScreen.X) * mouseMultiplyer);
                 virtualMouse.Y = halfScreen.Y + ((currentMouse.Y - halfScreen.Y) * mouseMultiplyer);
 
-
                 if (gameMode.Current == CameraModes.ThirdPerson && gameMode.Changed == true)
                     FirstToThirdPersonView();
                 else if (gameMode.Current == CameraModes.FirstPerson && gameMode.Changed == true)
                     ThirdToFirstPersonView();
 
+                //----
+                // Changes to 3rd person when a cutscene is triggered
+                // and back when it ends
+                //----
+                if (inCutscene.Changed)
+                    if (inCutscene.Current)
+                        FirstToThirdPersonView();
+                    else
+                        if (gameMode.Current == CameraModes.FirstPerson)
+                            ThirdToFirstPersonView();
+
                 isMounted = false;
                 housingMode = false;
 
-                if (curEye == 0)
-                    rawBoneList.Clear();
+                //if (curEye == 0)
+                //    rawBoneList.Clear();
 
                 PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
                 //GameObject* bonedObject = charList->Character0;
@@ -800,365 +773,28 @@ namespace xivr
                     isMounted = bonedCharacter->IsMounted();
                 }
 
-                
-
-
-                //if (player != null && curEye == 0 && gameMode.Current == CameraModes.FirstPerson)
-                if (player != null && gameMode.Current == CameraModes.FirstPerson)
+                if (!inCutscene.Current)
                 {
-                    GameObject* bonedObject = (GameObject*)player.Address;
-                    Character* bonedCharacter = (Character*)player.Address;
-
-
-                    if (bonedObject != null)
+                    int objCount = DalamudApi.ObjectTable.Length;
+                    for (int i = 0; i < objCount; i++)
                     {
-                        Vector3* objectModelPos = GameObjectGetPositionFn!(bonedObject);
-                        float bodyHeight = firstPersonCameraHeight - objectModelPos->Y;
+                        Dalamud.Game.ClientState.Objects.Types.GameObject? tmpObj = DalamudApi.ObjectTable[i];
+                        if (tmpObj == null)
+                            continue;
 
-                        //----
-                        // Gets the skeletal system
-                        //----
+                        GameObject* bonedObject = (GameObject*)tmpObj.Address;
+                        if (bonedObject == null)
+                            continue;
+
                         Model* model = (Model*)bonedObject->DrawObject;
-                        if (model != null)
-                        {
-                            Skeleton* skeleton = model->skeleton;
-                            if (skeleton != null)
-                            {
-                                plrSkeletonPosition = Matrix4x4.CreateFromQuaternion(skeleton->Transform.Rotation);
-                                plrSkeletonPosition.Translation = skeleton->Transform.Position;
-                                plrSkeletonPosition.SetScale(skeleton->Transform.Scale);
-                                Matrix4x4.Invert(plrSkeletonPosition, out plrSkeletonPositionI);
-                                boneLayout.Clear();
+                        if (model == null)
+                            continue;
 
-                                //----
-                                // Loops though the skeletal parts and gets the pose layouts
-                                //----
-                                for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
-                                {
-                                    hkaPose* objPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
-                                    if (objPose == null)
-                                        continue;
-
-                                    UInt64 objPose64 = (UInt64)objPose;
-                                    boneLayout.Add(objPose64, new Dictionary<BoneList, short>());
-
-                                    //----
-                                    // Loops though the pose bones and updates the ones that have tracking
-                                    //----
-                                    Bone[] boneArray = new Bone[objPose->LocalPose.Length];
-                                    for (short i = 0; i < objPose->LocalPose.Length; i++)
-                                    {
-                                        string boneName = objPose->Skeleton->Bones[i].Name.String;
-                                        short parentId = objPose->Skeleton->ParentIndices[i];
-
-                                        BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._unknown_);
-                                        if (boneKey == BoneList._unknown_)
-                                        {
-                                            if (!reportedBones.ContainsKey(boneName))
-                                            {
-                                                PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
-                                                reportedBones.Add(boneName, true);
-                                            }
-                                            boneName = "_unknown_";
-                                        }
-                                        else
-                                            boneLayout[objPose64][boneKey] = i;
-
-                                        //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
-
-                                        if (parentId < 0)
-                                            boneArray[i] = new Bone(boneKey, i, parentId, null, objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
-                                        else
-                                            boneArray[i] = new Bone(boneKey, i, parentId, boneArray[parentId], objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
-
-                                        //boneArray[i].SetTransformFromLocalBase();
-
-                                        if (outputBonesOnce == false)
-                                        {
-                                            //boneArray[i].SetReference(false);
-                                            //boneArray[i].OutputToParent(false);
-
-                                            /*
-                                            PluginLog.Log($"Bone {i}/{objPose->LocalPose.Length} Name {boneName}");
-                                            PluginLog.Log($"{boneArray[i].transform.Rotation.X}, {boneArray[i].transform.Rotation.Y}, {boneArray[i].transform.Rotation.Z}, {boneArray[i].transform.Rotation.W}");
-                                            PluginLog.Log($"{boneArray[i].transform.Translation.X}, {boneArray[i].transform.Translation.Y}, {boneArray[i].transform.Translation.Z}, {boneArray[i].transform.Translation.W}");
-                                            PluginLog.Log($"-");
-                                            PluginLog.Log($"{boneMatrix.M11}, {boneMatrix.M12}, {boneMatrix.M13}, {boneMatrix.M14}");
-                                            PluginLog.Log($"{boneMatrix.M21}, {boneMatrix.M22}, {boneMatrix.M23}, {boneMatrix.M24}");
-                                            PluginLog.Log($"{boneMatrix.M31}, {boneMatrix.M32}, {boneMatrix.M33}, {boneMatrix.M34}");
-                                            PluginLog.Log($"{boneMatrix.M41}, {boneMatrix.M42}, {boneMatrix.M43}, {boneMatrix.M44}");
-                                            PluginLog.Log($"-");
-                                            PluginLog.Log($"{quatMat.X}, {quatMat.Y}, {quatMat.Z}, {quatMat.W}");
-                                            PluginLog.Log($"{vecMat.X}, {vecMat.Y}, {vecMat.Z}, 0");
-                                            PluginLog.Log($"-");
-                                            */
-                                        }
-                                    }
-                                    rawBoneList[objPose64] = boneArray;
-
-                                    if (outputBonesOnce == false)
-                                    {
-                                        //Matrix4x4 boneMatI = boneArray[0].ConvertToLocal(rhcMatrix);
-                                        /*
-                                        PluginLog.Log($"-");
-                                        PluginLog.Log($"{rhcMatrix.M11}, {rhcMatrix.M12}, {rhcMatrix.M13}, {rhcMatrix.M14}");
-                                        PluginLog.Log($"{rhcMatrix.M21}, {rhcMatrix.M22}, {rhcMatrix.M23}, {rhcMatrix.M24}");
-                                        PluginLog.Log($"{rhcMatrix.M31}, {rhcMatrix.M32}, {rhcMatrix.M33}, {rhcMatrix.M34}");
-                                        PluginLog.Log($"{rhcMatrix.M41}, {rhcMatrix.M42}, {rhcMatrix.M43}, {rhcMatrix.M44}");
-                                        PluginLog.Log($"-");
-                                        PluginLog.Log($"{boneMatI.M11}, {boneMatI.M12}, {boneMatI.M13}, {boneMatI.M14}");
-                                        PluginLog.Log($"{boneMatI.M21}, {boneMatI.M22}, {boneMatI.M23}, {boneMatI.M24}");
-                                        PluginLog.Log($"{boneMatI.M31}, {boneMatI.M32}, {boneMatI.M33}, {boneMatI.M34}");
-                                        PluginLog.Log($"{boneMatI.M41}, {boneMatI.M42}, {boneMatI.M43}, {boneMatI.M44}");
-                                        PluginLog.Log($"-");
-                                        */
-
-                                        //outputBonesOnce = true;
-                                        //boneArray[0].SetReferenceChildren();
-                                        //boneArray[0].Output();
-                                        //boneArray[0].Output(0, true);
-                                    }
-                                    //rawBoneList[objPose64][0].ScaleAll(rawBoneList[objPose64], 0, 0, 0);
-
-                                    short rootBone = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_root, -1);
-                                    short headBone = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_head, -1);
-
-                                    if (rootBone >= 0)
-                                    {
-
-                                        //rootBonePos = boneArray[rootBone].boneFinish;
-                                        //rootBonePos.Y -= firstPersonCameraHeight;
-                                        short abdomen = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_abdomen, -1);
-
-                                        short spineA = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_a, -1);
-                                        short spineB = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_b, -1);
-                                        short spineC = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_c, -1);
-                                        short neck = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_neck, -1);
-
-                                        short collarboneL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_collarbone_l, -1);
-                                        short armL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_arm_l, -1);
-                                        short forearmL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_forearm_l, -1);
-                                        short elbowL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_elbow_l, -1);
-                                        short handL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_hand_l, -1);
-                                        short wristL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_wrist_l, -1);
-
-                                        short collarboneR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_collarbone_r, -1);
-                                        short armR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_arm_r, -1);
-                                        short forearmR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_forearm_r, -1);
-                                        short elbowR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_elbow_r, -1);
-                                        short handR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_hand_r, -1);
-                                        short wristR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_wrist_r, -1);
-
-
-                                        short scabbardL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_scabbard_l, -1);
-                                        short sheatheL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_sheathe_l, -1);
-                                        short scabbardR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_scabbard_r, -1);
-                                        short sheatheR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_sheathe_r, -1);
-
-                                        short weaponL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_l, -1);
-                                        short weaponR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_r, -1);
-
-                                        //if (neck >= 0)
-                                        //    boneArray[neck].SetReference(true, true);
-
-                                        //DrawBoneRay(curSkeletonPosition, boneArray[headBone]);
-
-                                        //PluginLog.Log($"{boneArray[rootBone].boneFinish.X} {boneArray[rootBone].boneFinish.Y} {boneArray[rootBone].boneFinish.Z} || {boneArray[rootBone].transform.Translation.X} {boneArray[rootBone].transform.Translation.Y} {boneArray[rootBone].transform.Translation.Z}");
-
-                                        //Quaternion q = Quaternion.CreateFromRotationMatrix(boneArray[clothBABone].boneMatrix);
-                                        //Vector3 v = boneArray[clothBABone].boneMatrix.Translation;
-
-                                        //Matrix4x4.Invert(boneArray[clothBABone].parent.boneMatrix, out Matrix4x4 invP);
-                                        //Matrix4x4.Invert(boneArray[clothBABone].boneMatrix, out Matrix4x4 inv);
-                                        //Matrix4x4 itm = invP * inv;
-                                        //Matrix4x4 itm = boneArray[clothBABone].boneMatrix * invP;
-                                        //Matrix4x4.Invert(itm, out Matrix4x4 itmI);
-                                        //q = Quaternion.CreateFromRotationMatrix(itmI);
-                                        //v = itmI.Translation;
-                                        //Vector4 t = Vector4.Transform(Vector4.One, itmI);
-                                        //PluginLog.Log($"A {boneArray[clothBABone].transform.Rotation.X} {boneArray[clothBABone].transform.Rotation.Y} {boneArray[clothBABone].transform.Rotation.Z} {boneArray[clothBABone].transform.Rotation.W} -- {boneArray[clothBABone].transform.Translation.X} {boneArray[clothBABone].transform.Translation.Y} {boneArray[clothBABone].transform.Translation.Z} {boneArray[clothBABone].transform.Translation.W}");
-                                        //PluginLog.Log($"B {q.X} {q.Y} {q.Z} {q.W} -- {v.X} {v.Y} {v.Z} 0");
-
-                                        //0x141733460 - hkQsTransformf.?setAxisAngle@hkQuaternionf@@QEAAXAEBVhkVector4f@@AEBVhkSimdFloat32@@@Z
-
-                                        if (isMounted == false && abdomen >= 0)
-                                        {
-                                            if (xivr_Ex.cfg.data.immersiveMovement == false && xivr_Ex.cfg.data.immersiveFull == false)
-                                            {
-                                                Vector3 angles = new Vector3(0, 0, 0);
-                                                //if (xivr_Ex.cfg.data.conloc)
-                                                //    angles = GetAngles(lhcMatrix);
-
-                                                boneArray[abdomen].SetReference(true, false);
-                                                boneArray[spineA].SetReference(true, true);
-
-                                                boneArray[spineA].updateRotation = true;
-                                                boneArray[spineA].transform.Rotation = (boneArray[spineA].transform.Rotation.Convert() * Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), angles.Y)).Convert();
-
-                                                if (xivr_Ex.cfg.data.conloc == false && xivr_Ex.cfg.data.hmdloc == false)
-                                                {
-                                                    boneArray[spineA].updatePosition = true;
-                                                    boneArray[spineA].transform.Translation.X = -(hmdMatrix.Translation.X * 0.5f);
-                                                    boneArray[spineA].transform.Translation.Y = (hmdMatrix.Translation.Y * 0.5f);
-                                                    boneArray[spineA].transform.Translation.Z = -(hmdMatrix.Translation.Z * 0.5f);
-                                                    boneArray[spineA].transform.Translation.W = 0;
-                                                }
-                                            }
-                                        }
-
-
-                                        if (scabbardL >= 0) boneArray[scabbardL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-                                        if (scabbardR >= 0) boneArray[scabbardR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-                                        if (sheatheL >= 0) boneArray[sheatheL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-                                        if (sheatheR >= 0) boneArray[sheatheR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-
-                                        if (isMounted == false && handL >= 0 && xivr_Ex.cfg.data.motioncontrol)
-                                        {
-                                            boneArray[armL].SetReference(false, true);
-                                            boneArray[armL].transform.Rotation = Quaternion.CreateFromYawPitchRoll(-90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
-                                            boneArray[forearmL].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, -90 * Deg2Rad).Convert();
-                                            boneArray[handL].transform.Rotation = Quaternion.Identity.Convert();
-                                            boneArray[collarboneL].CalculateMatrix(true);
-
-                                            Matrix4x4 lhc = lhcMatrixCXZ;
-                                            //lhc *= bridgeLocal;
-                                            lhc *= boneArray[headBone].localMatrix;
-                                            lhc *= boneArray[neck].localMatrix;
-                                            lhc *= boneArray[collarboneL].localMatrixI;
-                                            lhc *= boneArray[armL].localMatrixI;
-                                            lhc *= boneArray[forearmL].localMatrixI;
-                                            lhc = lhc.SetScale(boneArray[handL].transform.Scale);
-                                            boneArray[armL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-
-                                            boneArray[handL].SetTransform(lhc);
-                                            boneArray[wristL].SetTransform(lhc);
-                                            boneArray[handL].SetScale(new Vector3(10000f, 10000f, 10000f));
-                                        }
-                                        if (isMounted == false && handR >= 0 && xivr_Ex.cfg.data.motioncontrol)
-                                        {
-                                            boneArray[armR].SetReference(false, true);
-                                            boneArray[armR].transform.Rotation = Quaternion.CreateFromYawPitchRoll(90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
-                                            boneArray[forearmR].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, -90 * Deg2Rad).Convert();
-                                            boneArray[handR].transform.Rotation = Quaternion.Identity.Convert();
-                                            boneArray[collarboneR].CalculateMatrix(true);
-
-                                            Matrix4x4 rhc = rhcMatrixCXZ;
-                                            //rhc *= bridgeLocal;
-                                            rhc *= boneArray[headBone].localMatrix;
-                                            rhc *= boneArray[neck].localMatrix;
-                                            rhc *= boneArray[collarboneR].localMatrixI;
-                                            rhc *= boneArray[armR].localMatrixI;
-                                            rhc *= boneArray[forearmR].localMatrixI;
-                                            rhc = rhc.SetScale(boneArray[handR].transform.Scale);
-                                            boneArray[armR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-
-                                            boneArray[handR].SetTransform(rhc);
-                                            boneArray[wristR].SetTransform(rhc);
-                                            boneArray[handR].SetScale(new Vector3(10000f, 10000f, 10000f));
-                                        }
-                                        if (weaponL >= 0 && weaponR >= 0 && xivr_Ex.cfg.data.showWeaponInHand == false && xivr_Ex.cfg.data.motioncontrol)
-                                        {
-                                            boneArray[weaponL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-                                            boneArray[weaponR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
-                                        }
-                                        if (neck >= 0)
-                                        {
-                                            neckPosition = boneArray[neck].boneMatrix.Translation;// Vector3.Transform(boneArray[neck].boneStart, plrSkeletonPosition);
-                                            //Matrix4x4.Invert(headBoneMatrix * curViewMatrixWithoutHMD, out eyeMidPointM);
-                                            //Matrix4x4 fullNeck = plrSkeletonPosition;// * boneArray[neck].boneMatrix;
-                                            //neckPosition = fullNeck.Translation; //boneArray[neck].boneMatrix.Translation;
-                                            //boneArray[neck].SetReference();
-                                            //boneArray[neck].transform.Translation = new Vector3(0, 0, 0).Convert();
-                                            //boneArray[neck].transform.Rotation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), 180 * Deg2Rad).Convert();
-                                            //boneArray[neck].transform.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
-                                        }
-                                        if (headBone >= 0)
-                                        {
-                                            //headBoneMatrix = boneArray[headBone].boneMatrix;// * plrSkeletonPosition;
-                                            headBoneMatrix = boneArray[headBone].localMatrix * boneArray[neck].localMatrixI;
-                                            //headBoneMatrix.Translation *= eyeMidPoint;
-                                            headBoneMatrix *= boneArray[neck].boneMatrix;
-                                            headBoneMatrix *= plrSkeletonPosition;
-                                            hkQsTransformf identTrans = new hkQsTransformf();
-                                            identTrans.Translation = boneArray[headBone].transform.Translation;
-                                            identTrans.Rotation = Quaternion.Identity.Convert();
-                                            identTrans.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
-                                            boneArray[headBone].SetTransform(identTrans, false, true);
-
-                                            boneArray[neck].updateRotation = true;
-                                            boneArray[neck].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, 180 * Deg2Rad).Convert();
-                                        }
-                                    }
-                                    else if (headBone >= 0)
-                                    {
-                                        short bridge = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_bridge, -1);
-                                        short eyeL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_eye_l, -1);
-                                        short eyeR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_eye_r, -1);
-
-                                        boneArray[headBone].SetReference(true, true);
-                                        if (eyeL >= 0 && eyeR >= 0)
-                                        {
-                                            eyeMidPoint = ((boneArray[eyeL].boneMatrix.Translation + boneArray[eyeR].boneMatrix.Translation) / 2.0f) - boneArray[headBone].boneMatrix.Translation;
-                                        }
-
-
-                                        if (bridge >= 0)
-                                        {
-                                            bridgeLocal = boneArray[bridge].localMatrix;
-                                            //headBoneMatrix = boneArray[headBone].boneMatrix;// * plrSkeletonPosition * hmdMatrix;
-                                            //headBoneMatrix = headBoneMatrix * plrSkeletonPosition; //.Translation + headBoneMatrix.Translation;// boneArray[bridge].boneMatrix.Translation;
-                                            //Matrix4x4 eyeMidM = boneArray[headBone].boneMatrix;
-                                            //eyeMidM.Translation = headBonePosition;
-                                            //PluginLog.Log($"{boneArray[eyeL].boneMatrix.Translation.X} {boneArray[eyeR].boneMatrix.Translation.X} - {eyeMid.X.ToString("0.00000000")} {eyeMid.Y} {eyeMid.Z}");
-                                            //headBoneMatrixI = boneArray[bridge].boneMatrixI;
-
-                                            //hmdMatrix = plrSkeletonPositionI * headBoneMatrix;
-                                            //Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
-                                            if (xivr_Ex.cfg.data.immersiveFull)
-                                            {
-                                                hmdMatrix.M42 = (xivr_Ex.cfg.data.offsetAmountYFPS / 100);
-                                                hmdMatrix.M43 = (xivr_Ex.cfg.data.offsetAmountZFPS / 100);
-                                                hmdMatrix = hmdMatrix * hmdFlip * headBoneMatrix * curViewMatrixWithoutHMD;
-                                                Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
-                                            }
-                                        }
-
-                                        //DrawBoneRay(curSkeletonPosition, boneArray[eyeLeftBone]);
-                                        //DrawBoneRay(curSkeletonPosition, boneArray[eyeRightBone]);
-
-                                        hkQsTransformf identTrans = new hkQsTransformf();
-                                        identTrans.Translation = new Vector3(0, 0, 0).Convert();
-                                        identTrans.Rotation = Quaternion.Identity.Convert();
-                                        identTrans.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
-                                        boneArray[0].SetTransform(identTrans, false, true);
-                                    }
-                                }
-                            }
-
-
-                            /*
-                            //----
-                            // Change hair to bald
-                            //----
-                            if(outputBonesOnce == false)
-                            {
-                                CharCustData* customData = (CharCustData*)((Character*)bonedObject)->CustomizeData;
-                                customData->HairStyle = 255;
-                                customData->FaceType = 255;
-                                
-                                bool done = ((Human*)bonedObject->DrawObject)->UpdateDrawData(customData->Data, true);
-                                //bonedObject->DisableDraw();
-                                //bonedObject->EnableDraw();
-
-                                //PluginLog.Log($"{done} {(UInt64)customData->Data:X} {customData->Race} {customData->Height} {customData->FaceType}");
-                            }*/
-                            outputBonesOnce = true;
-                            //DrawBones(skeleton);
-                        }
+                        if (model->CullType == ModelCullTypes.InsideCamera)
+                            model->CullType = ModelCullTypes.Visible;
                     }
-
-
                 }
+
                 /*
                 if (gameMode.Current == CameraModes.FirstPerson)
                 {
@@ -1249,10 +885,10 @@ namespace xivr
                 if (HousingGoods != null)
                     housingMode = true;
 
-                if (curRenderMode == RenderModes.TwoD)
-                    curEye = 0;
-                else
-                    curEye = nextEye[curEye];
+                //if (curRenderMode == RenderModes.TwoD)
+                //    curEye = 0;
+                //else
+                //    curEye = nextEye[curEye];
                 //curEye = 0;
             }
 
@@ -1268,7 +904,7 @@ namespace xivr
         public void ForceFloatingScreen(bool forceFloating, bool isCutscene)
         {
             forceFloatingScreen = forceFloating;
-            inCutscene = isCutscene;
+            inCutscene.Current = isCutscene;
         }
 
         public void SetRotateAmount(float x, float y)
@@ -1341,8 +977,8 @@ namespace xivr
         {
             if (hooksSet)
             {
-                if (DisableCameraCollisionAddr != 0)
-                    SafeMemory.Write<UInt64>((IntPtr)DisableCameraCollisionAddr, DisableCameraCollisionOverride);
+                //if (DisableCameraCollisionAddr != 0)
+                //    SafeMemory.Write<UInt64>((IntPtr)DisableCameraCollisionAddr, DisableCameraCollisionOverride);
             }
         }
 
@@ -1350,8 +986,8 @@ namespace xivr
         {
             if (hooksSet)
             {
-                if (DisableCameraCollisionAddr != 0)
-                    SafeMemory.Write<UInt64>((IntPtr)DisableCameraCollisionAddr, DisableCameraCollisionOrig);
+                //if (DisableCameraCollisionAddr != 0)
+                //    SafeMemory.Write<UInt64>((IntPtr)DisableCameraCollisionAddr, DisableCameraCollisionOrig);
             }
         }
 
@@ -1366,7 +1002,17 @@ namespace xivr
             exExtras.Dispose();
         }
 
-        private void AddClearCommand()
+        private void AddClearCommand(Structures.Texture* rendTexture, Structures.Texture* depthTexture, bool depth = false, float r = 0, float g = 0, float b = 0, float a = 0)
+        {
+            UInt64 threadedOffset = GetThreadedOffset();
+            if (threadedOffset != 0)
+            {
+                SetRenderTargetFn!(threadedOffset, 1, &rendTexture, depthTexture, 0, 0);
+                AddClearCommand(depth, r, g, b, a);
+            }
+        }
+
+        private void AddClearCommand(bool depth = false, float r = 0, float g = 0, float b = 0, float a = 0)
         {
             UInt64 threadedOffset = GetThreadedOffset();
             if (threadedOffset != 0)
@@ -1374,14 +1020,47 @@ namespace xivr
                 UInt64 queueData = AllocateQueueMemmoryFn!(threadedOffset, 0x38);
                 if (queueData != 0)
                 {
-                    stRenderQueueCommandClear* cmd = (stRenderQueueCommandClear*)queueData;
-                    cmd->Clear();
-                    cmd->clearType = 1;
-                    cmd->colorR = 0;
-                    cmd->colorG = 0;
-                    cmd->colorB = 0;
-                    cmd->colorA = 0;
-                    cmd->unkn1 = 1;
+                    Imports.ZeroMemory((byte*)queueData, 0x38);
+                    cmdType4* cmd = (cmdType4*)queueData;
+                    cmd->SwitchType = 4;
+                    cmd->clearType = ((depth) ? 7 : 1);
+                    cmd->colorR = r;
+                    cmd->colorG = g;
+                    cmd->colorB = b;
+                    cmd->colorA = a;
+                    cmd->clearDepth = 1;
+                    cmd->clearStencil = 0;
+                    cmd->clearCheck = 0;
+                    PushbackFn!((threadedOffset + 0x18), (UInt64)(*(int*)(threadedOffset + 0x8)), queueData);
+                }
+            }
+        }
+
+
+        private void AddCopyResourceCommand(Structures.Texture* destination, Structures.Texture* source, int eye = -1)
+        {
+            UInt64 threadedOffset = GetThreadedOffset();
+            if (threadedOffset != 0)
+            {
+                UInt64 queueData = AllocateQueueMemmoryFn!(threadedOffset, 0x48);
+                if (queueData != 0)
+                {
+                    Imports.ZeroMemory((byte*)queueData, 0x48);
+                    cmdType10* cmd = (cmdType10*)queueData;
+                    cmd->SwitchType = 10;
+                    cmd->uk1 = 0;
+                    cmd->Destination = destination;
+                    cmd->subResourceDestination = 0;
+                    cmd->X = 0;
+                    cmd->Y = 0;
+                    cmd->Z = 0;
+                    cmd->Source = source;
+                    cmd->subResourceSource = 0;
+                    cmd->useRect = 0;
+                    cmd->rectTop = 0;
+                    cmd->rectLeft = 0;
+                    cmd->rectBottom = 0;
+                    cmd->rectLeft = 0;
                     PushbackFn!((threadedOffset + 0x18), (UInt64)(*(int*)(threadedOffset + 0x8)), queueData);
                 }
             }
@@ -1462,7 +1141,7 @@ namespace xivr
         //----
         // SetRenderTarget
         //----
-        private delegate void SetRenderTargetDg(UInt64 a, UInt64 b, Structures.Texture** c, UInt64 d, UInt64 e, UInt64 f);
+        private delegate void SetRenderTargetDg(UInt64 a, UInt64 b, Structures.Texture** c, Structures.Texture* d, UInt64 e, UInt64 f);
         [Signature(Signatures.SetRenderTarget, Fallibility = Fallibility.Fallible)]
         private SetRenderTargetDg? SetRenderTargetFn = null;
 
@@ -1506,7 +1185,7 @@ namespace xivr
         {
             Structures.Texture* texture = Imports.GetUIRenderTexture(curEye);
             UInt64 threadedOffset = GetThreadedOffset();
-            SetRenderTargetFn!(threadedOffset, 1, &texture, 0, 0, 0);
+            SetRenderTargetFn!(threadedOffset, 1, &texture, null, 0, 0);
             AddClearCommand();
 
             overrideFromParent.Push(true);
@@ -1641,56 +1320,6 @@ namespace xivr
         }
 
 
-
-
-
-        /*
-        //----
-        // DisableLeftClick
-        //----
-        private delegate void DisableLeftClickDg(void** a, byte* b, bool c);
-        [Signature(Signatures.DisableLeftClick, DetourName = nameof(DisableLeftClickFn))]
-        private readonly Hook<DisableLeftClickDg>? DisableLeftClickHook = null;
-
-        [HandleStatus("DisableLeftClick")]
-        public void DisableLeftClickStatus(bool status)
-        {
-            if (status == true)
-                DisableLeftClickHook?.Enable();
-            else
-                DisableLeftClickHook?.Disable();
-        }
-
-        private void DisableLeftClickFn(void** a, byte* b, bool c)
-        {
-            if (b != null && b == a[16]) DisableLeftClickHook!.Original(a, b, c);
-        }
-
-
-
-        //----
-        // DisableRightClick
-        //----
-        private delegate void DisableRightClickDg(void** a, byte* b, bool c);
-        [Signature(Signatures.DisableRightClick, DetourName = nameof(DisableRightClickFn))]
-        private Hook<DisableRightClickDg>? DisableRightClickHook = null;
-
-        [HandleStatus("DisableRightClick")]
-        public void DisableRightClickStatus(bool status)
-        {
-            if (status == true)
-                DisableRightClickHook?.Enable();
-            else
-                DisableRightClickHook?.Disable();
-        }
-
-        private void DisableRightClickFn(void** a, byte* b, bool c)
-        {
-            if (b != null && b == a[16]) DisableRightClickHook!.Original(a, b, c);
-        }
-        */
-
-
         //----
         // AtkUnitBase OnRequestedUpdate
         //----
@@ -1736,19 +1365,22 @@ namespace xivr
 
         private unsafe void DXGIPresentFn(UInt64 a, UInt64 b)
         {
-            if (forceFloatingScreen)
+            if (curEye == 1)
             {
-                Imports.RenderUI(false, false, curViewMatrixWithoutHMD, virtualMouse, dalamudMode);
-                DXGIPresentHook!.Original(a, b);
-                Imports.RenderFloatingScreen(virtualMouse, dalamudMode);
-                Imports.RenderVR();
-            }
-            else
-            {
-                Imports.RenderUI(enableVR, enableFloatingHUD, curViewMatrixWithoutHMD, virtualMouse, dalamudMode);
-                DXGIPresentHook!.Original(a, b);
-                Imports.SetTexture();
-                Imports.RenderVR();
+                if (forceFloatingScreen)
+                {
+                    Imports.RenderUI(false, false, curViewMatrixWithoutHMD, virtualMouse, dalamudMode);
+                    DXGIPresentHook!.Original(a, b);
+                    Imports.RenderFloatingScreen(virtualMouse, dalamudMode);
+                    Imports.RenderVR();
+                }
+                else
+                {
+                    Imports.RenderUI(enableVR, true, curViewMatrixWithoutHMD, virtualMouse, dalamudMode);
+                    DXGIPresentHook!.Original(a, b);
+                    Imports.SetTexture();
+                    Imports.RenderVR();
+                }
             }
         }
 
@@ -1776,8 +1408,8 @@ namespace xivr
             {
                 Structures.Texture* rendTrg = *(Structures.Texture**)(b + 0x8);
                 if ((rendTrg->uk5 & 0x90000000) == 0x90000000)
-                    Imports.SetThreadedEye((int)(rendTrg->uk5 - 0x90000000));
-            }
+                     Imports.SetThreadedEye((int)(rendTrg->uk5 - 0x90000000));
+             }
             RenderThreadSetRenderTargetHook!.Original(a, b);
         }
 
@@ -1856,7 +1488,7 @@ namespace xivr
             {
                 Structures.Texture* texture = Imports.GetUIRenderTexture(curEye);
                 UInt64 threadedOffset = GetThreadedOffset();
-                SetRenderTargetFn!(threadedOffset, 1, &texture, 0, 0, 0);
+                SetRenderTargetFn!(threadedOffset, 1, &texture, null, 0, 0);
             }
 
             SetUIProjHook!.Original(a, b);
@@ -1884,7 +1516,7 @@ namespace xivr
         //----
         private void CalculateViewMatrixFn(RawGameCamera* rawGameCamera)
         {
-            if (enableVR && frfCalculateViewMatrix == false)
+            if (enableVR && (frfCalculateViewMatrix == false || scCameraManager->CameraIndex == 1))
             {
                 if (xivr_Ex.cfg.data.ultrawideshadows == true)
                     rawGameCamera->CurrentFoV = 2.54f; // ultra wide
@@ -1896,35 +1528,29 @@ namespace xivr
                 Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
                 frfCalculateViewMatrix = true;
 
+                //if (xivr_Ex.cfg.data.immersiveMovement || isMounted)
+                //{
+                //    Vector3 frontBackDiff = rawGameCamera->LookAt - rawGameCamera->Position;
+                //    rawGameCamera->Position = headBoneMatrix.Translation;
+                //    rawGameCamera->LookAt = rawGameCamera->Position + frontBackDiff;
+                //}
+
                 rawGameCamera->ViewMatrix = Matrix4x4.Identity;
                 CalculateViewMatrixHook!.Original(rawGameCamera);
 
-                firstPersonCameraHeight = rawGameCamera->Position.Y;
-
-                if (enableFloatingHUD && forceFloatingScreen == false)
+                if (!forceFloatingScreen)
                 {
-                    if (camInst->CameraIndex == 1)
+                    if (inCutscene.Current)
                     {
                         curViewMatrixWithoutHMD = rawGameCamera->ViewMatrix;
                         Matrix4x4.Invert(curViewMatrixWithoutHMD, out curViewMatrixWithoutHMDI);
                         if (xivr_Ex.cfg.data.swapEyes)
-                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD; // hmdMatrixI * eyeOffsetMatrix[swapEyes[curEye]];
+                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD * hmdMatrixI * eyeOffsetMatrix[swapEyes[curEye]];
                         else
-                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD; // hmdMatrixI * eyeOffsetMatrix[curEye];
+                            rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD * hmdMatrixI * eyeOffsetMatrix[curEye];
                     }
                     else
                     {
-                        if (xivr_Ex.cfg.data.immersiveMovement || isMounted)
-                        {
-                            //rawGameCamera->ViewMatrix = eyeMidPointM;
-                            //Vector3 headCamDiff = neckPosition - rawGameCamera->ViewMatrix.Translation;
-                            //Vector3 frontBackDiff = rawGameCamera->LookAt - rawGameCamera->Position;
-                            //rawGameCamera->ViewMatrix.Translation -= neckPosition;
-                            //rawGameCamera->LookAt = frontBackDiff + neckPosition;
-                            //rawGameCamera->Position = headBoneMatrix.Translation;
-                            //rawGameCamera->LookAt = frontBackDiff + headBoneMatrix.Translation;
-                        }
-
                         if (xivr_Ex.cfg.data.horizonLock || gameMode.Current == CameraModes.FirstPerson)
                         {
                             horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), rawGameCamera->CurrentVRotation);
@@ -1942,19 +1568,7 @@ namespace xivr
                             horizonLockMatrix.M43 = (xivr_Ex.cfg.data.offsetAmountZ / 100);
                         }
 
-                        Matrix4x4 invGameViewMatrixAddr;
-                        Vector3 angles = new Vector3();
-                        if (xivr_Ex.cfg.data.conloc)
-                        {
-                            angles = GetAngles(lhcMatrix);
-                        }
-                        else if (xivr_Ex.cfg.data.hmdloc)
-                        {
-                            angles = GetAngles(hmdMatrixI);
-                            angles.Y *= -1;
-                        }
-
-                        Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
+                        //Matrix4x4 zoom = Matrix4x4.CreateTranslation(0, 0, -cameraZoom);
                         curViewMatrixWithoutHMD = rawGameCamera->ViewMatrix * horizonLockMatrix;
                         Matrix4x4.Invert(curViewMatrixWithoutHMD, out curViewMatrixWithoutHMDI);
 
@@ -1995,7 +1609,7 @@ namespace xivr
 
         private void UpdateRotationFn(GameCamera* gameCamera)
         {
-            if (forceFloatingScreen == false)
+            if (!forceFloatingScreen && !inCutscene.Current)
             {
                 gameMode.Current = gameCamera->Camera.Mode;
 
@@ -2031,29 +1645,6 @@ namespace xivr
 
 
         //----
-        // CutScene View Matrix
-        //----
-        private delegate void CutsceneViewMatrixDg(UInt64 a, UInt64 b);
-        [Signature(Signatures.CutsceneViewMatrix, DetourName = nameof(CutsceneViewMatrixFn))]
-        private Hook<CutsceneViewMatrixDg>? CutsceneViewMatrixHook = null;
-
-        [HandleStatus("CutsceneViewMatrix")]
-        public void CutsceneViewMatrixStatus(bool status)
-        {
-            if (status == true)
-                CutsceneViewMatrixHook?.Enable();
-            else
-                CutsceneViewMatrixHook?.Disable();
-        }
-
-        private void CutsceneViewMatrixFn(UInt64 a, UInt64 b)
-        {
-            //PluginLog.Log($"{a:X} {b:X}");
-            CutsceneViewMatrixHook!.Original(a, b);
-        }
-
-
-        //----
         // MakeProjectionMatrix2
         //----
         private delegate Matrix4x4 MakeProjectionMatrix2Dg(Matrix4x4 projMatrix, float b, float c, float d, float e);
@@ -2073,9 +1664,8 @@ namespace xivr
         {
             bool overrideMatrix = (overrideFromParent.Count == 0) ? false : overrideFromParent.Peek();
             Matrix4x4 retVal = MakeProjectionMatrix2Hook!.Original(projMatrix, b, c, d, e);
-            if (enableVR && enableFloatingHUD && overrideMatrix && forceFloatingScreen == false)
+            if (enableVR && overrideMatrix && forceFloatingScreen == false)
             {
-
                 if (xivr_Ex.cfg.data.swapEyes)
                 {
                     gameProjectionMatrix[swapEyes[curEye]].M43 = retVal.M43;
@@ -2488,6 +2078,11 @@ namespace xivr
             }
             return retVal;
         }
+
+        private delegate void SwapClothesDg(UInt64 DrawData, uint index, uint item, byte d);
+        [Signature("E8 ?? ?? ?? ?? FF C3 4D 8D 76 04", Fallibility = Fallibility.Fallible)]
+        private SwapClothesDg? SwapClothesFn = null;
+
 
         //----
         // Controller Input
@@ -2955,7 +2550,6 @@ namespace xivr
         [HandleInputAttribute(ActionButtonLayout.leftClick)]
         public void inputLeftClick(InputAnalogActionData analog, InputDigitalActionData digital)
         {
-
             if (digital.bState == true && inputState[ActionButtonLayout.leftClick] == false)
             {
                 inputState[ActionButtonLayout.leftClick] = true;
@@ -3250,12 +2844,12 @@ namespace xivr
         //----
         // XBox Buttons
         //----
-
+        bool showKeyboard = false;
         [HandleInputAttribute(ActionButtonLayout.xbox_button_y)]
         public void inputXBoxButtonY(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             float value = (digital.bState == true) ? 1.0f : 0.0f;
-            if (dalamudMode)
+            if (rightStickAltMode)
                 inputButton11(analog, digital);
             else
                 xboxStatus.button_y.Set(digital.bState, value);
@@ -3266,7 +2860,7 @@ namespace xivr
         {
             float value = (digital.bState == true) ? 1.0f : 0.0f;
             if (dalamudMode)
-                inputButton10(analog, digital);
+                inputXBoxStart(analog, digital);
             else
                 xboxStatus.button_x.Set(digital.bState, value);
         }
@@ -3285,7 +2879,7 @@ namespace xivr
         public void inputXBoxButtonB(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             float value = (digital.bState == true) ? 1.0f : 0.0f;
-            if (dalamudMode)
+            if (rightStickAltMode)
                 inputButton12(analog, digital);
             else
                 xboxStatus.button_b.Set(digital.bState, value);
@@ -3373,6 +2967,587 @@ namespace xivr
         {
             float value = (digital.bState == true) ? 1.0f : 0.0f;
             xboxStatus.select.Set(digital.bState, value);
+        }
+
+
+        [HandleInputAttribute(ActionButtonLayout.thumbrest_left)]
+        public void inputThumbrestLeft(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+            if (digital.bChanged)
+                rightStickAltMode = digital.bState;
+        }
+
+        [HandleInputAttribute(ActionButtonLayout.thumbrest_right)]
+        public void inputThumbrestRight(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+            if (digital.bChanged)
+            {
+                leftStickAltMode = digital.bState;
+                dalamudMode = digital.bState;
+            }
+        }
+
+        //----
+        // Watch Buttons
+        //----
+
+        [HandleInputAttribute(ActionButtonLayout.watch_audio)]
+        public void inputWatchAudio(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+        }
+
+        [HandleInputAttribute(ActionButtonLayout.watch_dalamud)]
+        public void inputWatchDalamud(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+        }
+
+        [HandleInputAttribute(ActionButtonLayout.watch_keyboard)]
+        public void inputWatchKeyboard(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+        }
+
+        [HandleInputAttribute(ActionButtonLayout.watch_occlusion)]
+        public void inputWatchOcclusion(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+        }
+
+        [HandleInputAttribute(ActionButtonLayout.watch_recenter)]
+        public void inputWatchRecenter(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+        }
+
+        [HandleInputAttribute(ActionButtonLayout.watch_xivr)]
+        public void inputWatchXIVR(InputAnalogActionData analog, InputDigitalActionData digital)
+        {
+        }
+
+
+        public void RunBoneCode()
+        {
+            Matrix4x4 hmdFlip = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), 90 * Deg2Rad) * Matrix4x4.CreateFromAxisAngle(new Vector3(0, 0, 1), -90 * Deg2Rad);
+            Matrix4x4 hmdMatrixBody = hmdFlip * hmdMatrixI;
+            Matrix4x4 lhcMatrixCXZ = convertXZ * lhcMatrix * convertXZ;
+            Matrix4x4 rhcMatrixCXZ = convertXZ * rhcMatrix * convertXZ;
+
+            PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
+
+            //if (player != null && curEye == 0 && gameMode.Current == CameraModes.FirstPerson)
+            if (player != null && gameMode.Current == CameraModes.FirstPerson && !inCutscene.Current)
+            {
+                Character* bonedCharacter = (Character*)player.Address;
+
+                //----
+                // Update model
+                // - 8 idle anim
+                // - 16 normal
+                // - 24 animations
+                // -
+                //----
+                //*(byte*)(player.Address + 0x97) = 24;
+
+                if (bonedCharacter != null)
+                {
+                    /*
+                    Character.MountContainer* mountContainer = &bonedCharacter->Mount;
+                    if (mountContainer != null)
+                    {
+                        GameObject* bonedMount = (GameObject*)mountContainer->MountObject;
+                        Model* mount = (Model*)bonedMount->DrawObject;
+                        UInt64 bonedMountAddr = (UInt64)mountContainer->MountObject;
+                        *(float*)(bonedMountAddr + 0xF0) = 0.0f;
+                        if (mount != null)
+                            mount->basePosition.Rotation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), bonedMount->Rotation).Convert();
+                    }
+                    */
+
+
+                    //----
+                    // Gets the skeletal system
+                    //----
+                    Model* model = (Model*)bonedCharacter->GameObject.DrawObject;
+                    if (model != null)
+                    {
+                        //model->basePosition.Rotation = Quaternion.Identity.Convert();
+                        //model->basePosition.Translation = bonedObject->Position.Convert();
+                        model->basePosition.Rotation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), bonedCharacter->GameObject.Rotation).Convert();
+
+                        Skeleton* skeleton = model->skeleton;
+                        if (skeleton != null)
+                        {
+                            plrSkeletonPosition = Matrix4x4.CreateFromQuaternion(skeleton->Transform.Rotation);
+                            plrSkeletonPosition.Translation = skeleton->Transform.Position;
+                            plrSkeletonPosition.SetScale(skeleton->Transform.Scale);
+                            Matrix4x4.Invert(plrSkeletonPosition, out plrSkeletonPositionI);
+                            boneLayout.Clear();
+
+                            fingerHandLayout lHand = Imports.GetSkeletalPose(poseType.LeftHand);
+                            fingerHandLayout rHand = Imports.GetSkeletalPose(poseType.RightHand);
+
+                            //PluginLog.Log($"{lHand.thumb0Metacarpal}");
+                            //----
+                            // Loops though the skeletal parts and gets the pose layouts
+                            //----
+                            for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
+                            {
+                                hkaPose* objPose = skeleton->PartialSkeletons[p].GetHavokPose(0);
+                                if (objPose == null)
+                                    continue;
+
+                                UInt64 objPose64 = (UInt64)objPose;
+                                boneLayout.Add(objPose64, new Dictionary<BoneList, short>());
+
+                                //----
+                                // Loops though the pose bones and updates the ones that have tracking
+                                //----
+                                Bone[] boneArray = new Bone[objPose->LocalPose.Length];
+                                for (short i = 0; i < objPose->LocalPose.Length; i++)
+                                {
+                                    string boneName = objPose->Skeleton->Bones[i].Name.String!;
+                                    short parentId = objPose->Skeleton->ParentIndices[i];
+
+                                    BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._unknown_);
+                                    if (boneKey == BoneList._unknown_)
+                                    {
+                                        if (!reportedBones.ContainsKey(boneName))
+                                        {
+                                            PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
+                                            reportedBones.Add(boneName, true);
+                                        }
+                                        boneName = "_unknown_";
+                                    }
+                                    else
+                                        boneLayout[objPose64][boneKey] = i;
+
+                                    //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
+
+                                    if (parentId < 0)
+                                        boneArray[i] = new Bone(boneKey, i, parentId, null, objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
+                                    else
+                                        boneArray[i] = new Bone(boneKey, i, parentId, boneArray[parentId], objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
+
+                                    //boneArray[i].SetTransformFromLocalBase();
+
+                                    if (outputBonesOnce == false)
+                                    {
+                                        //boneArray[i].SetReference(false);
+                                        //boneArray[i].OutputToParent(false);
+
+                                        /*
+                                        PluginLog.Log($"Bone {i}/{objPose->LocalPose.Length} Name {boneName}");
+                                        PluginLog.Log($"{boneArray[i].transform.Rotation.X}, {boneArray[i].transform.Rotation.Y}, {boneArray[i].transform.Rotation.Z}, {boneArray[i].transform.Rotation.W}");
+                                        PluginLog.Log($"{boneArray[i].transform.Translation.X}, {boneArray[i].transform.Translation.Y}, {boneArray[i].transform.Translation.Z}, {boneArray[i].transform.Translation.W}");
+                                        PluginLog.Log($"-");
+                                        PluginLog.Log($"{boneMatrix.M11}, {boneMatrix.M12}, {boneMatrix.M13}, {boneMatrix.M14}");
+                                        PluginLog.Log($"{boneMatrix.M21}, {boneMatrix.M22}, {boneMatrix.M23}, {boneMatrix.M24}");
+                                        PluginLog.Log($"{boneMatrix.M31}, {boneMatrix.M32}, {boneMatrix.M33}, {boneMatrix.M34}");
+                                        PluginLog.Log($"{boneMatrix.M41}, {boneMatrix.M42}, {boneMatrix.M43}, {boneMatrix.M44}");
+                                        PluginLog.Log($"-");
+                                        PluginLog.Log($"{quatMat.X}, {quatMat.Y}, {quatMat.Z}, {quatMat.W}");
+                                        PluginLog.Log($"{vecMat.X}, {vecMat.Y}, {vecMat.Z}, 0");
+                                        PluginLog.Log($"-");
+                                        */
+                                    }
+                                }
+                                rawBoneList[objPose64] = boneArray;
+
+                                if (outputBonesOnce == false)
+                                {
+                                    //Matrix4x4 boneMatI = boneArray[0].ConvertToLocal(rhcMatrix);
+                                    /*
+                                    PluginLog.Log($"-");
+                                    PluginLog.Log($"{rhcMatrix.M11}, {rhcMatrix.M12}, {rhcMatrix.M13}, {rhcMatrix.M14}");
+                                    PluginLog.Log($"{rhcMatrix.M21}, {rhcMatrix.M22}, {rhcMatrix.M23}, {rhcMatrix.M24}");
+                                    PluginLog.Log($"{rhcMatrix.M31}, {rhcMatrix.M32}, {rhcMatrix.M33}, {rhcMatrix.M34}");
+                                    PluginLog.Log($"{rhcMatrix.M41}, {rhcMatrix.M42}, {rhcMatrix.M43}, {rhcMatrix.M44}");
+                                    PluginLog.Log($"-");
+                                    PluginLog.Log($"{boneMatI.M11}, {boneMatI.M12}, {boneMatI.M13}, {boneMatI.M14}");
+                                    PluginLog.Log($"{boneMatI.M21}, {boneMatI.M22}, {boneMatI.M23}, {boneMatI.M24}");
+                                    PluginLog.Log($"{boneMatI.M31}, {boneMatI.M32}, {boneMatI.M33}, {boneMatI.M34}");
+                                    PluginLog.Log($"{boneMatI.M41}, {boneMatI.M42}, {boneMatI.M43}, {boneMatI.M44}");
+                                    PluginLog.Log($"-");
+                                    */
+
+                                    //outputBonesOnce = true;
+                                    //boneArray[0].SetReferenceChildren();
+                                    //boneArray[0].Output();
+                                    //boneArray[0].Output(0, true);
+                                }
+                                //rawBoneList[objPose64][0].ScaleAll(rawBoneList[objPose64], 0, 0, 0);
+
+                                short rootBone = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_root, -1);
+                                short headBone = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_head, -1);
+
+                                if (rootBone >= 0)
+                                {
+
+                                    //rootBonePos = boneArray[rootBone].boneFinish;
+                                    short abdomen = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_abdomen, -1);
+                                    short waist = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_waist, -1);
+
+                                    short spineA = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_a, -1);
+                                    short spineB = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_b, -1);
+                                    short spineC = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_spine_c, -1);
+                                    short neck = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_neck, -1);
+
+                                    short collarboneL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_collarbone_l, -1);
+                                    short armL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_arm_l, -1);
+                                    short forearmL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_forearm_l, -1);
+                                    short elbowL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_elbow_l, -1);
+                                    short handL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_hand_l, -1);
+                                    short wristL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_wrist_l, -1);
+
+                                    short collarboneR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_collarbone_r, -1);
+                                    short armR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_arm_r, -1);
+                                    short forearmR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_forearm_r, -1);
+                                    short elbowR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_elbow_r, -1);
+                                    short handR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_hand_r, -1);
+                                    short wristR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_wrist_r, -1);
+
+                                    short scabbardL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_scabbard_l, -1);
+                                    short sheatheL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_sheathe_l, -1);
+                                    short scabbardR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_scabbard_r, -1);
+                                    short sheatheR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_sheathe_r, -1);
+
+                                    short weaponL = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_l, -1);
+                                    short weaponR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_r, -1);
+
+                                    //if (neck >= 0)
+                                    //    boneArray[neck].SetReference(true, true);
+
+                                    //DrawBoneRay(curSkeletonPosition, boneArray[headBone]);
+
+                                    //PluginLog.Log($"{boneArray[rootBone].boneFinish.X} {boneArray[rootBone].boneFinish.Y} {boneArray[rootBone].boneFinish.Z} || {boneArray[rootBone].transform.Translation.X} {boneArray[rootBone].transform.Translation.Y} {boneArray[rootBone].transform.Translation.Z}");
+
+                                    //Quaternion q = Quaternion.CreateFromRotationMatrix(boneArray[clothBABone].boneMatrix);
+                                    //Vector3 v = boneArray[clothBABone].boneMatrix.Translation;
+
+                                    //Matrix4x4.Invert(boneArray[clothBABone].parent.boneMatrix, out Matrix4x4 invP);
+                                    //Matrix4x4.Invert(boneArray[clothBABone].boneMatrix, out Matrix4x4 inv);
+                                    //Matrix4x4 itm = invP * inv;
+                                    //Matrix4x4 itm = boneArray[clothBABone].boneMatrix * invP;
+                                    //Matrix4x4.Invert(itm, out Matrix4x4 itmI);
+                                    //q = Quaternion.CreateFromRotationMatrix(itmI);
+                                    //v = itmI.Translation;
+                                    //Vector4 t = Vector4.Transform(Vector4.One, itmI);
+                                    //PluginLog.Log($"A {boneArray[clothBABone].transform.Rotation.X} {boneArray[clothBABone].transform.Rotation.Y} {boneArray[clothBABone].transform.Rotation.Z} {boneArray[clothBABone].transform.Rotation.W} -- {boneArray[clothBABone].transform.Translation.X} {boneArray[clothBABone].transform.Translation.Y} {boneArray[clothBABone].transform.Translation.Z} {boneArray[clothBABone].transform.Translation.W}");
+                                    //PluginLog.Log($"B {q.X} {q.Y} {q.Z} {q.W} -- {v.X} {v.Y} {v.Z} 0");
+
+                                    //0x141733460 - hkQsTransformf.?setAxisAngle@hkQuaternionf@@QEAAXAEBVhkVector4f@@AEBVhkSimdFloat32@@@Z
+
+                                    //if (isMounted == false && abdomen >= 0)
+                                    if (abdomen >= 0 && !isMounted)
+                                    {
+                                        if (!xivr_Ex.cfg.data.immersiveMovement && !xivr_Ex.cfg.data.immersiveFull)
+                                        {
+                                            Vector3 angles = new Vector3(0, 0, 0);
+                                            //if (xivr_Ex.cfg.data.conloc)
+                                            //    angles = GetAngles(lhcMatrix);
+                                            boneArray[abdomen].SetReference(true, false);
+                                            boneArray[spineA].SetReference(true, true);
+                                            //boneArray[rootBone].SetReference(true, true);
+
+                                            boneArray[spineA].updateRotation = true;
+                                            boneArray[spineA].transform.Rotation = (boneArray[spineA].transform.Rotation.Convert() * Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), angles.Y)).Convert();
+
+                                            boneArray[spineA].updatePosition = true;
+                                            boneArray[spineA].transform.Translation.X = -(hmdMatrix.Translation.X * 0.5f);
+                                            boneArray[spineA].transform.Translation.Y = (hmdMatrix.Translation.Y * 0.5f);
+                                            boneArray[spineA].transform.Translation.Z = -(hmdMatrix.Translation.Z * 0.5f);
+                                            boneArray[spineA].transform.Translation.W = 0;
+                                        }
+                                    }
+
+                                    //if (waist >= 0) boneArray[waist].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                    if (scabbardL >= 0) boneArray[scabbardL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                    if (scabbardR >= 0) boneArray[scabbardR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                    if (sheatheL >= 0) boneArray[sheatheL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                    if (sheatheR >= 0) boneArray[sheatheR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+
+                                    if (handL >= 0 && !isMounted && xivr_Ex.cfg.data.motioncontrol)
+                                    {
+                                        boneArray[armL].SetReference(false, true);
+                                        boneArray[armL].transform.Rotation = Quaternion.CreateFromYawPitchRoll(-90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
+                                        boneArray[forearmL].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, -90 * Deg2Rad).Convert();
+                                        boneArray[handL].transform.Rotation = Quaternion.Identity.Convert();
+                                        boneArray[collarboneL].CalculateMatrix(true);
+
+                                        Matrix4x4 lhc = lhcMatrixCXZ;
+                                        //lhc *= bridgeLocal;
+                                        lhc *= boneArray[headBone].localMatrix;
+                                        lhc *= boneArray[neck].localMatrix;
+                                        lhc *= boneArray[collarboneL].localMatrixI;
+                                        lhc *= boneArray[armL].localMatrixI;
+                                        lhc *= boneArray[forearmL].localMatrixI;
+                                        lhc = lhc.SetScale(boneArray[handL].transform.Scale);
+                                        boneArray[armL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+
+                                        boneArray[handL].SetTransform(lhc);
+                                        boneArray[wristL].SetTransform(lhc);
+                                        boneArray[handL].SetScale(new Vector3(10000f, 10000f, 10000f));
+
+
+                                        short thumb_a_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_thumb_a_l, -1);
+                                        short thumb_b_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_thumb_b_l, -1);
+                                        short index_a_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_index_a_l, -1);
+                                        short index_b_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_index_b_l, -1);
+                                        short middle_a_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_middle_a_l, -1);
+                                        short middle_b_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_middle_b_l, -1);
+                                        short ring_a_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_ring_a_l, -1);
+                                        short ring_b_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_ring_b_l, -1);
+                                        short pinky_a_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_pinky_a_l, -1);
+                                        short pinky_b_l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_pinky_b_l, -1);
+
+                                        //boneArray[handL].transform.Translation = new Vector3(lHand.wrist.pos.x, lHand.wrist.pos.y, lHand.wrist.pos.z).Convert();
+                                        //boneArray[handL].transform.Rotation = (new Quaternion(lHand.wrist.quat.x, lHand.wrist.quat.y, lHand.wrist.quat.z, lHand.wrist.quat.w)).Convert();
+
+                                        Matrix4x4 thumbA = Matrix4x4.CreateFromQuaternion(new Quaternion(lHand.thumb0Metacarpal.quat.x, lHand.thumb0Metacarpal.quat.y, lHand.thumb0Metacarpal.quat.z, lHand.thumb0Metacarpal.quat.w));
+                                        thumbA.Translation = new Vector3(lHand.thumb0Metacarpal.pos.x, lHand.thumb0Metacarpal.pos.y, lHand.thumb0Metacarpal.pos.z);
+                                        //thumbA = convertXZ * thumbA * convertXZ;
+                                        Matrix4x4 thumbB = Matrix4x4.CreateFromQuaternion(new Quaternion(lHand.thumb3Distal.quat.x, lHand.thumb3Distal.quat.y, lHand.thumb3Distal.quat.z, lHand.thumb3Distal.quat.w));
+                                        thumbB.Translation = new Vector3(lHand.thumb3Distal.pos.x, lHand.thumb3Distal.pos.y, lHand.thumb3Distal.pos.z);
+                                        //thumbB = convertXZ * thumbB * convertXZ;
+
+                                        //boneArray[thumb_a_l].transform.Translation = thumbA.Translation.Convert();
+                                        //boneArray[thumb_a_l].transform.Rotation = Quaternion.CreateFromRotationMatrix(thumbA).Convert();
+                                        //boneArray[thumb_b_l].transform.Translation = thumbB.Translation.Convert();
+                                        //boneArray[thumb_b_l].transform.Rotation = Quaternion.CreateFromRotationMatrix(thumbB).Convert();
+                                        
+                                        //boneArray[index_a_l].transform.Translation = new Vector3(lHand.index0Metacarpal.pos.x, lHand.index0Metacarpal.pos.y, lHand.index0Metacarpal.pos.z).Convert();
+                                        //boneArray[index_a_l].transform.Rotation = (new Quaternion(lHand.index0Metacarpal.quat.x, lHand.index0Metacarpal.quat.y, lHand.index0Metacarpal.quat.z, lHand.index0Metacarpal.quat.w)).Convert();
+                                        //boneArray[index_b_l].transform.Translation = new Vector3(lHand.index3Distal.pos.x, lHand.index3Distal.pos.y, lHand.index3Distal.pos.z).Convert();
+                                        //boneArray[index_b_l].transform.Rotation = (new Quaternion(lHand.index3Distal.quat.x, lHand.index3Distal.quat.y, lHand.index3Distal.quat.z, lHand.index3Distal.quat.w)).Convert();
+
+                                        //boneArray[middle_a_l].transform.Translation = new Vector3(lHand.middle0Metacarpal.pos.x, lHand.middle0Metacarpal.pos.y, lHand.middle0Metacarpal.pos.z).Convert();
+                                        //boneArray[middle_a_l].transform.Rotation = (new Quaternion(lHand.middle0Metacarpal.quat.x, lHand.middle0Metacarpal.quat.y, lHand.middle0Metacarpal.quat.z, lHand.middle0Metacarpal.quat.w)).Convert();
+                                        //boneArray[middle_b_l].transform.Translation = new Vector3(lHand.middle0Metacarpal.pos.x, lHand.middle3Distal.pos.y, lHand.middle3Distal.pos.z).Convert();
+                                        //boneArray[middle_b_l].transform.Rotation = (new Quaternion(lHand.middle3Distal.quat.x, lHand.middle3Distal.quat.y, lHand.middle3Distal.quat.z, lHand.middle3Distal.quat.w)).Convert();
+
+                                        //boneArray[ring_a_l].transform.Translation = new Vector3(lHand.ring0Metacarpal.pos.x, lHand.ring0Metacarpal.pos.y, lHand.ring0Metacarpal.pos.z).Convert();
+                                        //boneArray[ring_a_l].transform.Rotation = (new Quaternion(lHand.ring0Metacarpal.quat.x, lHand.ring0Metacarpal.quat.y, lHand.ring0Metacarpal.quat.z, lHand.ring0Metacarpal.quat.w)).Convert();
+                                        //boneArray[ring_b_l].transform.Translation = new Vector3(lHand.ring3Distal.pos.x, lHand.ring3Distal.pos.y, lHand.ring3Distal.pos.z).Convert();
+                                        //boneArray[ring_b_l].transform.Rotation = ( new Quaternion(lHand.ring3Distal.quat.x, lHand.ring3Distal.quat.y, lHand.ring3Distal.quat.z, lHand.ring3Distal.quat.w)).Convert();
+
+                                        //boneArray[pinky_a_l].transform.Translation = new Vector3(lHand.pinky0Metacarpal.pos.x, lHand.pinky0Metacarpal.pos.y, lHand.pinky0Metacarpal.pos.z).Convert();
+                                        //boneArray[pinky_a_l].transform.Rotation = (new Quaternion(lHand.pinky0Metacarpal.quat.x, lHand.pinky0Metacarpal.quat.y, lHand.pinky0Metacarpal.quat.z, lHand.pinky0Metacarpal.quat.w)).Convert();
+                                        //boneArray[pinky_b_l].transform.Translation = new Vector3(lHand.pinky3Distal.pos.x, lHand.pinky3Distal.pos.y, lHand.pinky3Distal.pos.z).Convert();
+                                        //boneArray[pinky_b_l].transform.Rotation = (new Quaternion(lHand.pinky3Distal.quat.x, lHand.pinky3Distal.quat.y, lHand.pinky3Distal.quat.z, lHand.pinky3Distal.quat.w)).Convert();
+
+                                    }
+                                    if (handR >= 0 && !isMounted && xivr_Ex.cfg.data.motioncontrol)
+                                    {
+                                        boneArray[armR].SetReference(false, true);
+                                        boneArray[armR].transform.Rotation = Quaternion.CreateFromYawPitchRoll(90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
+                                        boneArray[forearmR].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, -90 * Deg2Rad).Convert();
+                                        boneArray[handR].transform.Rotation = Quaternion.Identity.Convert();
+                                        boneArray[collarboneR].CalculateMatrix(true);
+
+                                        Matrix4x4 rhc = rhcMatrixCXZ;
+                                        //rhc *= bridgeLocal;
+                                        rhc *= boneArray[headBone].localMatrix;
+                                        rhc *= boneArray[neck].localMatrix;
+                                        rhc *= boneArray[collarboneR].localMatrixI;
+                                        rhc *= boneArray[armR].localMatrixI;
+                                        rhc *= boneArray[forearmR].localMatrixI;
+                                        rhc = rhc.SetScale(boneArray[handR].transform.Scale);
+                                        boneArray[armR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+
+                                        boneArray[handR].SetTransform(rhc);
+                                        boneArray[wristR].SetTransform(rhc);
+                                        boneArray[handR].SetScale(new Vector3(10000f, 10000f, 10000f));
+
+                                        short e_thumb_a_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_thumb_a_r, -1);
+                                        short e_thumb_b_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_thumb_b_r, -1);
+                                        short e_index_a_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_index_a_r, -1);
+                                        short e_index_b_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_index_b_r, -1);
+                                        short e_middle_a_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_middle_a_r, -1);
+                                        short e_middle_b_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_middle_b_r, -1);
+                                        short e_ring_a_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_ring_a_r, -1);
+                                        short e_ring_b_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_ring_b_r, -1);
+                                        short e_pinky_a_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_pinky_a_r, -1);
+                                        short e_pinky_b_r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_pinky_b_r, -1);
+
+                                        //boneArray[handR].transform.Translation = new Vector3(rHand.wrist.pos.x, rHand.wrist.pos.y, rHand.wrist.pos.z).Convert();
+                                        //boneArray[handR].transform.Rotation = (new Quaternion(rHand.wrist.quat.x, rHand.wrist.quat.y, rHand.wrist.quat.z, rHand.wrist.quat.w)).Convert();
+
+                                        //boneArray[e_thumb_a_r].transform.Translation = new Vector3(rHand.thumb0Metacarpal.pos.x, rHand.thumb0Metacarpal.pos.y, rHand.thumb0Metacarpal.pos.z).Convert();
+                                        //boneArray[e_thumb_a_r].transform.Rotation = (new Quaternion(rHand.thumb0Metacarpal.quat.x, rHand.thumb0Metacarpal.quat.y, rHand.thumb0Metacarpal.quat.z, rHand.thumb0Metacarpal.quat.w)).Convert();
+                                        //boneArray[e_thumb_b_r].transform.Translation = new Vector3(rHand.thumb3Distal.pos.x, rHand.thumb3Distal.pos.y, rHand.thumb3Distal.pos.z).Convert();
+                                        //boneArray[e_thumb_b_r].transform.Rotation = (new Quaternion(rHand.thumb3Distal.quat.x, rHand.thumb3Distal.quat.y, rHand.thumb3Distal.quat.z, rHand.thumb3Distal.quat.w)).Convert();
+
+                                        //boneArray[e_index_a_r].transform.Translation = new Vector3(rHand.index0Metacarpal.pos.x, rHand.index0Metacarpal.pos.y, rHand.index0Metacarpal.pos.z).Convert();
+                                        //boneArray[e_index_a_r].transform.Rotation = ( new Quaternion(rHand.index0Metacarpal.quat.x, rHand.index0Metacarpal.quat.y, rHand.index0Metacarpal.quat.z, rHand.index0Metacarpal.quat.w)).Convert();
+                                        //boneArray[e_index_b_r].transform.Translation = new Vector3(rHand.index3Distal.pos.x, rHand.index3Distal.pos.y, rHand.index3Distal.pos.z).Convert();
+                                        //boneArray[e_index_b_r].transform.Rotation = (new Quaternion(rHand.index3Distal.quat.x, rHand.index3Distal.quat.y, rHand.index3Distal.quat.z, rHand.index3Distal.quat.w)).Convert();
+
+                                        //boneArray[e_middle_a_r].transform.Translation = new Vector3(rHand.middle0Metacarpal.pos.x, rHand.middle0Metacarpal.pos.y, rHand.middle0Metacarpal.pos.z).Convert();
+                                        //boneArray[e_middle_a_r].transform.Rotation = (new Quaternion(rHand.middle0Metacarpal.quat.x, rHand.middle0Metacarpal.quat.y, rHand.middle0Metacarpal.quat.z, rHand.middle0Metacarpal.quat.w)).Convert();
+                                        //boneArray[e_middle_b_r].transform.Translation = new Vector3(rHand.middle0Metacarpal.pos.x, rHand.middle3Distal.pos.y, rHand.middle3Distal.pos.z).Convert();
+                                        //boneArray[e_middle_b_r].transform.Rotation = (new Quaternion(rHand.middle3Distal.quat.x, rHand.middle3Distal.quat.y, rHand.middle3Distal.quat.z, rHand.middle3Distal.quat.w)).Convert();
+
+                                        //boneArray[e_ring_a_r].transform.Translation = new Vector3(rHand.ring0Metacarpal.pos.x, rHand.ring0Metacarpal.pos.y, rHand.ring0Metacarpal.pos.z).Convert();
+                                        //boneArray[e_ring_a_r].transform.Rotation = (new Quaternion(rHand.ring0Metacarpal.quat.x, rHand.ring0Metacarpal.quat.y, rHand.ring0Metacarpal.quat.z, rHand.ring0Metacarpal.quat.w)).Convert();
+                                        //boneArray[e_ring_b_r].transform.Translation = new Vector3(rHand.ring3Distal.pos.x, rHand.ring3Distal.pos.y, rHand.ring3Distal.pos.z).Convert();
+                                        //boneArray[e_ring_b_r].transform.Rotation = (new Quaternion(rHand.ring3Distal.quat.x, rHand.ring3Distal.quat.y, rHand.ring3Distal.quat.z, rHand.ring3Distal.quat.w)).Convert();
+
+                                        //boneArray[e_pinky_a_r].transform.Translation = new Vector3(rHand.pinky0Metacarpal.pos.x, rHand.pinky0Metacarpal.pos.y, rHand.pinky0Metacarpal.pos.z).Convert();
+                                        //boneArray[e_pinky_a_r].transform.Rotation = (new Quaternion(rHand.pinky0Metacarpal.quat.x, rHand.pinky0Metacarpal.quat.y, rHand.pinky0Metacarpal.quat.z, rHand.pinky0Metacarpal.quat.w)).Convert();
+                                        //boneArray[e_pinky_b_r].transform.Translation = new Vector3(rHand.pinky3Distal.pos.x, rHand.pinky3Distal.pos.y, rHand.pinky3Distal.pos.z).Convert();
+                                        //boneArray[e_pinky_b_r].transform.Rotation = (new Quaternion(rHand.pinky3Distal.quat.x, rHand.pinky3Distal.quat.y, rHand.pinky3Distal.quat.z, rHand.pinky3Distal.quat.w)).Convert();
+
+                                    }
+                                    if (weaponL >= 0 && weaponR >= 0 && xivr_Ex.cfg.data.showWeaponInHand == false && xivr_Ex.cfg.data.motioncontrol)
+                                    {
+                                        boneArray[weaponL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                        boneArray[weaponR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                    }
+                                    if (neck >= 0)
+                                    {
+                                        neckPosition = boneArray[neck].boneMatrix.Translation;// Vector3.Transform(boneArray[neck].boneStart, plrSkeletonPosition);
+                                                                                              //Matrix4x4.Invert(headBoneMatrix * curViewMatrixWithoutHMD, out eyeMidPointM);
+                                                                                              //Matrix4x4 fullNeck = plrSkeletonPosition;// * boneArray[neck].boneMatrix;
+                                                                                              //neckPosition = fullNeck.Translation; //boneArray[neck].boneMatrix.Translation;
+                                                                                              //boneArray[neck].SetReference();
+                                                                                              //boneArray[neck].transform.Translation = new Vector3(0, 0, 0).Convert();
+                                                                                              //boneArray[neck].transform.Rotation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), 180 * Deg2Rad).Convert();
+                                                                                              //boneArray[neck].transform.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
+                                    }
+                                    if (headBone >= 0)
+                                    {
+                                        //headBoneMatrix = boneArray[headBone].boneMatrix;// * plrSkeletonPosition;
+                                        headBoneMatrix = boneArray[headBone].localMatrix * boneArray[neck].localMatrixI;
+                                        //headBoneMatrix.Translation *= eyeMidPoint;
+                                        headBoneMatrix *= boneArray[neck].boneMatrix;
+                                        headBoneMatrix *= plrSkeletonPosition;
+                                        
+                                        hkQsTransformf identTrans = new hkQsTransformf();
+                                        identTrans.Translation = boneArray[headBone].transform.Translation;
+                                        identTrans.Rotation = Quaternion.Identity.Convert();
+                                        identTrans.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
+                                        boneArray[headBone].SetTransform(identTrans, false, true);
+
+                                        boneArray[neck].updateRotation = true;
+                                        boneArray[neck].transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, 0, 180 * Deg2Rad).Convert();
+                                    }
+                                }
+                                else if (headBone >= 0)
+                                {
+                                    short bridge = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_bridge, -1);
+
+                                    if (bridge >= 0)
+                                    {
+                                        if (xivr_Ex.cfg.data.immersiveFull || xivr_Ex.cfg.data.immersiveMovement || isMounted)
+                                        {
+                                            Matrix4x4 thmdMatrix = hmdMatrix * hmdFlip * headBoneMatrix * curViewMatrixWithoutHMD;
+                                            thmdMatrix.M42 -= (xivr_Ex.cfg.data.offsetAmountYFPSMount / 100);
+                                            thmdMatrix.M43 += (xivr_Ex.cfg.data.offsetAmountZFPSMount / 100);
+                                            if (xivr_Ex.cfg.data.immersiveMovement || isMounted)
+                                                hmdMatrix.Translation += thmdMatrix.Translation;
+                                            Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
+                                        }
+                                    }
+
+                                    hkQsTransformf identTrans = new hkQsTransformf();
+                                    identTrans.Translation = new Vector3(0, 0, 0).Convert();
+                                    identTrans.Rotation = Quaternion.Identity.Convert();
+                                    identTrans.Scale = new Vector3(0.0001f, 0.0001f, 0.0001f).Convert();
+                                    boneArray[0].SetTransform(identTrans, false, true);
+                                }
+                            }
+                        }
+
+                        outputBonesOnce = true;
+                        //DrawBones(skeleton);
+                    }
+                }
+            }
+        }
+
+
+        [StructLayout(LayoutKind.Explicit)]
+        public struct vtblTask
+        {
+            [FieldOffset(0x8)]
+            public unsafe delegate* unmanaged[Stdcall]<Task*, UInt64, void> vf1;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        public struct Task
+        {
+            [FieldOffset(0x0)] public vtblTask* vtbl;
+
+            [VirtualFunction(1)]
+            public unsafe void vf1(UInt64 taskItem)
+            {
+                fixed (Task* ptr = &this)
+                {
+                    vtbl->vf1(ptr, taskItem);
+                }
+            }
+        }
+
+        //----
+        // RunGameTasks
+        //----
+        private delegate void RunGameTasksDg(UInt64 a, UInt64 b);
+        [Signature(Signatures.RunGameTasks, DetourName = nameof(RunGameTasksFn))]
+        private Hook<RunGameTasksDg>? RunGameTasksHook = null;
+
+        [HandleStatus("RunGameTasks")]
+        public void RunGameTasksStatus(bool status)
+        {
+            if (status == true)
+                RunGameTasksHook?.Enable();
+            else
+                RunGameTasksHook?.Disable();
+        }
+
+        public void RunGameTasksFn(UInt64 a, UInt64 b)
+        {
+            if (hooksSet && enableVR)
+            {
+                rawBoneList.Clear();
+                for (int i = 0; i < 40; i++)
+                {
+                    if(i == 18)
+                        RunBoneCode();
+                    Task* task = (Task*)((UInt64)(i * 0x78) + *(UInt64*)(a + 0x58)); task->vf1(b);
+                }
+            }
+            else
+                RunGameTasksHook!.Original(a, b);
+        }
+
+        //----
+        // RootTaskDrawLoop
+        //----
+        private delegate UInt64 RootTaskDrawLoopDg(UInt64 a);
+        [Signature(Signatures.RootTaskDrawLoop, DetourName = nameof(RootTaskDrawLoopFn))]
+        private Hook<RootTaskDrawLoopDg>? RootTaskDrawLoopHook = null;
+
+        [HandleStatus("RootTaskDrawLoop")]
+        public void RootTaskDrawLoopStatus(bool status)
+        {
+            if (status == true)
+                RootTaskDrawLoopHook?.Enable();
+            else
+                RootTaskDrawLoopHook?.Disable();
+        }
+
+        public UInt64 RootTaskDrawLoopFn(UInt64 a)
+        {
+            if (hooksSet && enableVR)
+            {
+                UInt64 retVal = 0;
+                curEye = 0;
+                retVal = RootTaskDrawLoopHook!.Original(a);
+                curEye = 1;
+                retVal = RootTaskDrawLoopHook!.Original(a);
+                return retVal;
+            }
+            else
+            {
+                return RootTaskDrawLoopHook!.Original(a);
+            }
         }
     }
 }

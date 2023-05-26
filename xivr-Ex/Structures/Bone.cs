@@ -141,7 +141,7 @@ namespace xivr.Structures
                     child.Value.SetTransform(location, runChild);
         }
 
-        public void SetTransform(Matrix4x4 location, bool runChild = false)
+        public void SetTransform(Matrix4x4 location, bool calculateMatrix = true, bool runChild = false)
         {
             updatePosition = true;
             updateRotation = true;
@@ -150,6 +150,9 @@ namespace xivr.Structures
             transform.Translation = location.Translation.Convert();
             transform.Rotation = Quaternion.CreateFromRotationMatrix(location).Convert();
             transform.Scale = location.GetScale().Convert();
+
+            if (calculateMatrix)
+                CalculateMatrix();
 
             if (runChild == true)
                 foreach (KeyValuePair<int, Bone> child in children)

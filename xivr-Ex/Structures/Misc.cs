@@ -15,7 +15,12 @@ namespace xivr.Structures
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct Model
     {
+        [FieldOffset(0x18)] public GameObject* ParentObject;
+        [FieldOffset(0x20)] public GameObject* PrevLinkedObject;
+        [FieldOffset(0x28)] public GameObject* NextLinkedObject;
         [FieldOffset(0x50)] public hkQsTransformf basePosition;
+        [FieldOffset(0x88)] public ModelCullTypes CullType;
+        [FieldOffset(0x89)] public byte RenderStyle;
         [FieldOffset(0xA0)] public Skeleton* skeleton;
     }
 

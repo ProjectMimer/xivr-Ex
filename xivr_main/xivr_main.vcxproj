@@ -172,11 +172,11 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configu
     <ClInclude Include="ffxivSwapChain.h" />
     <ClInclude Include="ffxivTexture.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="OSK.h" />
     <ClInclude Include="stBasicTexture.h" />
     <ClInclude Include="simpleVR.h" />
     <ClInclude Include="stButtonList.h" />
     <ClInclude Include="stCommon.h" />
-    <ClInclude Include="stDX11.h" />
     <ClInclude Include="SteamVRInput.h" />
     <ClInclude Include="RenderObject.h" />
     <ClInclude Include="stMonitorLayout.h" />
@@ -185,6 +185,7 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configu
   <ItemGroup>
     <ClCompile Include="BasicRenderer.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="OSK.cpp" />
     <ClCompile Include="RenderObject.cpp" />
     <ClCompile Include="simpleVR.cpp" />
     <ClCompile Include="SteamVRInput.cpp" />

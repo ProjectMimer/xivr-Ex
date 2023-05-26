@@ -173,6 +173,14 @@
         "type" : "boolean"
       },
       {
+        "name" : "/actions/game/in/thumbrest_left",
+        "type" : "boolean"
+      },
+      {
+        "name" : "/actions/game/in/thumbrest_right",
+        "type" : "boolean"
+      },
+      {
         "name": "/actions/game/in/lefthand_anim",
         "type": "skeleton",
         "skeleton": "/skeleton/hand/left"
@@ -244,6 +252,10 @@
 
       "/actions/game/in/xbox_start" : "XBox Start",
       "/actions/game/in/xbox_select" : "XBox Select",
+
+      "/actions/game/in/thumbrest_left" : "Thumb Rest Left",
+      "/actions/game/in/thumbrest_right" : "Thumb Rest Right",
+
       "language_tag" : "en"
     }
    ]

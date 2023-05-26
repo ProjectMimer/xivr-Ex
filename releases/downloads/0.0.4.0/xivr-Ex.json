@@ -2,7 +2,7 @@
   "Author": "Marulu, StreetRat",
   "Name": "XIVR-Ex - VR Mod",
   "InternalName": "xivr-Ex",
-  "AssemblyVersion": "0.0.3.2",
+  "AssemblyVersion": "0.0.4.0",
   "Description": "Mod to allow vr + extra options",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/ProjectMimer/xivr",
@@ -11,7 +11,7 @@
   ],
   "DalamudApiLevel": 8,
   "LoadRequiredState": 0,
-  "LoadSync": false,
+  "LoadSync": true,
   "LoadPriority": 0,
   "Punchline": "Mod to allow VR",
   "AcceptsFeedback": true

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Lumina.Data.Parsing;
+using System;
 using System.Runtime.InteropServices;
 
 namespace xivr
@@ -53,6 +54,83 @@ namespace xivr
         FirstPerson = 0,
         ThirdPerson = 1,
     }
+
+    [Flags]
+    public enum ModelCullTypes : byte
+    {
+        None = 0,
+        InsideCamera = 0x42,
+        OutsideCullCone = 0x43,
+        Visible = 0x4B
+    }
+
+    public struct Vector4
+    {
+        public float x;
+        public float y;
+        public float z;
+        public float w;
+    };
+
+    public struct Quat4
+    {
+        public float w;
+        public float x;
+        public float y;
+        public float z;
+    };
+
+    public struct BoneData
+    {
+        public Vector4 pos;
+        public Quat4 quat;
+    };
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct fingerHandLayout
+    {
+        [FieldOffset(0x00)] public BoneData root;
+        [FieldOffset(0x20)] public BoneData wrist;
+
+        [FieldOffset(0x40)] public BoneData thumb0Metacarpal;
+        [FieldOffset(0x60)] public BoneData thumb1Proximal;
+        [FieldOffset(0x60)] public BoneData thumb2Middle;
+        [FieldOffset(0x80)] public BoneData thumb3Distal;
+        [FieldOffset(0xA0)] public BoneData thumb4Tip;
+
+        [FieldOffset(0xC0)] public BoneData index0Metacarpal;
+        [FieldOffset(0xE0)] public BoneData index1Proximal;
+        [FieldOffset(0x100)] public BoneData index2Middle;
+        [FieldOffset(0x120)] public BoneData index3Distal;
+        [FieldOffset(0x140)] public BoneData index4Tip;
+
+        [FieldOffset(0x160)] public BoneData middle0Metacarpal;
+        [FieldOffset(0x180)] public BoneData middle1Proximal;
+        [FieldOffset(0x1A0)] public BoneData middle2Middle;
+        [FieldOffset(0x1C0)] public BoneData middle3Distal;
+        [FieldOffset(0x1E0)] public BoneData middle4Tip;
+
+        [FieldOffset(0x200)] public BoneData ring0Metacarpal;
+        [FieldOffset(0x220)] public BoneData ring1Proximal;
+        [FieldOffset(0x240)] public BoneData ring2Middle;
+        [FieldOffset(0x260)] public BoneData ring3Distal;
+        [FieldOffset(0x280)] public BoneData ring4Tip;
+
+        [FieldOffset(0x2A0)] public BoneData pinky0Metacarpal;
+        [FieldOffset(0x2C0)] public BoneData pinky1Proximal;
+        [FieldOffset(0x2E0)] public BoneData pinky2Middle;
+        [FieldOffset(0x300)] public BoneData pinky3Distal;
+        [FieldOffset(0x320)] public BoneData pinky4Tip;
+
+        [FieldOffset(0x340)] public BoneData thumbAux;
+        [FieldOffset(0x360)] public BoneData indexAux;
+        [FieldOffset(0x380)] public BoneData middleAux;
+        [FieldOffset(0x3A0)] public BoneData ringAux;
+        [FieldOffset(0x3C0)] public BoneData pinkyAux;
+    }
+
+
+
 
     [Flags]
     public enum VisibilityFlags
