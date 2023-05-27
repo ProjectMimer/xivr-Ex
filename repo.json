@@ -25,7 +25,7 @@
     "Name": "XIVR Preload - VR Mod",
     "Description": "Required to load some settings before XIVR loads.\n XIVLauncher needs to start Dalamud using the 'New' injection mode and in the Dalamud settings in the general tab 'wait for plugins before game loads' needs to be enabled.",
     "InternalName": "xivr_preload",
-    "AssemblyVersion": "0.0.4.1",
+    "AssemblyVersion": "0.0.4.2",
     "RepoUrl": "https://github.com/ProjectMimer/xivr_preload",
     "ApplicableVersion": "any",
     "Tags": [
@@ -35,10 +35,10 @@
     "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1685103076,
+    "LastUpdated": 1685161299,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.1/xivr_preload.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.1/xivr_preload.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.1/xivr_preload.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.2/xivr_preload.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.2/xivr_preload.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.4.2/xivr_preload.zip"
   }
 ]
