@@ -22,7 +22,7 @@ namespace xivr.Structures
         [FieldOffset(0x90)] public UInt64 ukn2;
         [FieldOffset(0x98)] public UInt64 ukn3;
 
-        public RawGameCamera* GetActive(ControlSystemCameraManager* csCameraManager)
+        public RawGameCamera* GetActive(ControlSystemCameraManager* csCameraManager = null)
         {
             if (csCameraManager != null)
             {

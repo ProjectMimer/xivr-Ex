@@ -50,6 +50,7 @@ namespace xivr.Structures
         public string showWeaponInHand_Line1;
         public string support_Line1;
         public string autoMove_Line1;
+        public string enableOSK_Line1;
     }
 
     public static class Language
@@ -95,7 +96,8 @@ namespace xivr.Structures
                     ultrawideshadows_Line1 = "Ultrawide Shadows",
                     showWeaponInHand_Line1 = "Show Weapon In Hand",
                     support_Line1 = "Support via Ko-fi",
-                    autoMove_Line1 = "Auto Move when activated"
+                    autoMove_Line1 = "Auto Move when activated",
+                    enableOSK_Line1 = "Virtual Keyboard (Requires Admin)"
                 }
             },
             {
@@ -138,7 +140,8 @@ namespace xivr.Structures
                     ultrawideshadows_Line1 = "ウルトラワイド影",
                     showWeaponInHand_Line1 = "手の中の武器表示する",
                     support_Line1 = "Ko-fiで支援",
-                    autoMove_Line1 = "自動ウィンドウ位置調整"
+                    autoMove_Line1 = "自動ウィンドウ位置調整",
+                    enableOSK_Line1 = "バーチャルキーボード（管理者権限必要）"
                 }
             }
         };

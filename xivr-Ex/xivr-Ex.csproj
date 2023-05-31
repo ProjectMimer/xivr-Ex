@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Authors></Authors>
 		<Company></Company>
-		<Version>0.0.4.0</Version>
+		<Version>0.0.4.1</Version>
 		<Description>XIVR-Ex.</Description>
 		<Copyright></Copyright>
 		<PackageProjectUrl></PackageProjectUrl>
@@ -84,6 +84,14 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</Content>
+		<Content Include="images\hide_ui_off.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</Content>
+		<Content Include="images\hide_ui_on.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</Content>
 		<Content Include="images\keyboard_off.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
@@ -108,11 +116,23 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</Content>
+		<Content Include="images\weapon_off.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</Content>
+		<Content Include="images\weapon_on.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</Content>
 		<Content Include="images\xivr_off.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</Content>
 		<Content Include="images\xivr_on.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<Visible>false</Visible>
+		</Content>
+		<Content Include="images\blank.png">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<Visible>false</Visible>
 		</Content>

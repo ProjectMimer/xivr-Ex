@@ -70,16 +70,41 @@ void OSK::CreateOSKTexture(ID3D11Device* device, stBasicTexture* oskTexture)
 	if (oskSharedTexture.pTexture) { oskSharedTexture.Release(); }
 	if (oskTexture->pTexture) { oskTexture->Release(); }
 
+	if (oskLayout.hwnd)
+	{
+		//----
+		// Get the position of the keyboard and get the very top left point of the keyboard window
+		// to remove the top bar and border
+		//----
+		RECT rect;
+		GetWindowRect(oskLayout.hwnd, &rect);
 
-	oskSharedTexture.Create(device, false, false, true);
-	oskSharedTexture.pTexture->GetDesc(&oskSharedTexture.textureDesc);
+		POINT point = { rect.left, rect.top };
+		ScreenToClient(oskLayout.hwnd, &point);
+		displayRect.left = std::abs(point.x);
+		displayRect.top = std::abs(point.y);
 
-	oskTexture->textureDesc = oskSharedTexture.textureDesc;
-	oskTexture->Create(device, false, true, false);
+		//----
+		// Get the actual client size of the keyboard
+		//----
+		GetClientRect(oskLayout.hwnd, &rect);
+		displayRect.right = rect.right;
+		displayRect.bottom = rect.bottom;
+	}
 
-	oskLayout.width = oskTexture->textureDesc.Width;
-	oskLayout.height = oskTexture->textureDesc.Height;
-	oskLayout.haveLayout = true;
+	if (oskSharedTexture.Create(device, false, false, true))
+	{
+		oskSharedTexture.pTexture->GetDesc(&oskSharedTexture.textureDesc);
+
+		oskTexture->textureDesc = oskSharedTexture.textureDesc;
+		oskTexture->textureDesc.Width = displayRect.right;
+		oskTexture->textureDesc.Height = displayRect.bottom;
+		oskTexture->Create(device, false, true, false);
+
+		oskLayout.width = oskTexture->textureDesc.Width;
+		oskLayout.height = oskTexture->textureDesc.Height;
+		oskLayout.haveLayout = true;
+	}
 }
 
 void OSK::CopyOSKTexture(ID3D11Device* device, ID3D11DeviceContext* devCon, stBasicTexture* oskTexture)
@@ -102,7 +127,9 @@ void OSK::CopyOSKTexture(ID3D11Device* device, ID3D11DeviceContext* devCon, stBa
 			CreateOSKTexture(device, oskTexture);
 		}
 
-		devCon->CopyResource(oskTexture->pTexture, oskSharedTexture.pTexture);
+		//devCon->CopyResource(oskTexture->pTexture, oskSharedTexture.pTexture);
+		D3D11_BOX oskTextureCutout = { displayRect.left, displayRect.top, 0, displayRect.left + displayRect.right, displayRect.top + displayRect.bottom, 1 };
+		devCon->CopySubresourceRegion(oskTexture->pTexture, 0, 0, 0, 0, oskSharedTexture.pTexture, 0, &oskTextureCutout);
 	}
 }
 
@@ -130,7 +157,6 @@ bool OSK::LoadOSK(ID3D11Device* device, stBasicTexture* oskTexture, RECT positio
 			if (osk.th32ProcessID != 0)
 				haveFoundKeyboard = true;
 			haveFoundKeyboardCount--;
-			Sleep(50);
 		}
 	}
 
@@ -151,7 +177,6 @@ bool OSK::LoadOSK(ID3D11Device* device, stBasicTexture* oskTexture, RECT positio
 				SendMessageA(oskLayout.hwnd, WM_EXITSIZEMOVE, WPARAM(0), LPARAM(0));
 				CreateOSKTexture(device, oskTexture);
 			}
-			ShowHide(false);
 		}
 	}
 	return haveFoundKeyboard;
@@ -165,6 +190,7 @@ stScreenLayout* OSK::GetOSKLayout()
 void OSK::ShowHide(bool show)
 {
 	HWND curActiveWin = GetActiveWindow();
+	SetActiveWindow(oskLayout.hwnd);
 	if (show)
 		ShowWindow(oskLayout.hwnd, SW_SHOW);
 	else
@@ -176,7 +202,10 @@ void OSK::UnloadOSK()
 {
 	if (oskLayout.hwnd != 0)
 	{
-		ToggleOSK();
+		PROCESSENTRY32 osk = FindProcess(L"osk.exe");
+		if (osk.th32ProcessID != 0)
+			ToggleOSK();
 		oskLayout = stScreenLayout();
+		oskSharedTexture.Release();
 	}
 }

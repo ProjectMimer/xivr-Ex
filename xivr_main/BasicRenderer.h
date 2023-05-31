@@ -20,6 +20,7 @@ struct stMatrixSet
 	XMMATRIX eyeMatrix;
 	XMMATRIX rhcMatrix;
 	XMMATRIX lhcMatrix;
+	Vector4 oskOffset;
 };
 
 struct VertexType
@@ -86,14 +87,13 @@ class BasicRenderer
 	RenderObject osk;
 	RenderObject colorCube;
 	RenderObject rayLine;
-	RenderObject handSquare[3];
+	RenderObject handSquare[9];
 	RenderObject lineObj;
 
 	bool curvedUIAtUI = false;
 	bool oskAtUI = false;
-	bool handSquareAtUI[3] = {};
+	bool handSquareAtUI[9] = {};
 	int handSquareCount = sizeof(handSquare) / sizeof(RenderObject);
-
 
 	bool haveSaved = false;
 	ID3D11BlendState* savedBlendState = nullptr;
@@ -137,7 +137,7 @@ public:
 	bool SetDevice(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
 	void SetMousePosition(HWND hwnd, int mouseX, int mouseY, bool forceMouse = false);
 	void SetMouseBuffer(HWND hwnd, int width, int height, int mouseX, int mouseY, bool dalamudMode);
-	void RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, poseType inputType, bool dalamudMode, bool showOSK);
+	void RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputType, bool dalamudMode, bool showOSK);
 	void RenderLines(std::vector<std::vector<float>> LineRender);
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, ID3D11DepthStencilView* dsv, stMatrixSet* matrixSet, bool isOrthog = false);
 	void SaveSettings();
@@ -150,7 +150,7 @@ public:
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isOrthog = false, bool moveOrthog = false);
 	void DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth);
 	void DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex);
-	void GetWatchStatus(float* status, int count);
+	void GetUIStatus(bool* status, int count);
 	void Release();
 	bool HasErrors();
 	std::string GetErrors();

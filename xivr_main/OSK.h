@@ -10,7 +10,7 @@ class OSK
 {
 	stScreenLayout oskLayout = stScreenLayout();
 	stBasicTexture oskSharedTexture = stBasicTexture();
-
+	RECT displayRect = { 0, 0, 0, 0 };
 	PROCESSENTRY32 FindProcess(std::wstring toFind);
 
 public:
@@ -19,7 +19,7 @@ public:
 	void CopyOSKTexture(ID3D11Device* device, ID3D11DeviceContext* devCon, stBasicTexture* oskTexture);
 	bool LoadOSK(ID3D11Device* device, stBasicTexture* oskTexture, RECT position);
 	stScreenLayout* GetOSKLayout();
-	void ShowHide(bool hide);
+	void ShowHide(bool show);
 	void UnloadOSK();
 };
 

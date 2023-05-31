@@ -49,12 +49,15 @@ namespace xivr.Structures
 		thumbrest_right,
 		haptics_left,
 		haptics_right,
-		watch_audio,
+        watch_audio,
         watch_dalamud,
+        watch_ui,
         watch_keyboard,
+        watch_none,
         watch_occlusion,
         watch_recenter,
-		watch_xivr
+        watch_weapon,
+        watch_xivr
     }
 
 

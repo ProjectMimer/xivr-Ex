@@ -120,9 +120,12 @@ enum buttonLayout
 	haptic_right,
 	watch_audio,
 	watch_dalamud,
+	watch_ui,
 	watch_keyboard,
+	watch_none,
 	watch_occlusion,
 	watch_recenter,
+	watch_weapon,
 	watch_xivr
 };
 

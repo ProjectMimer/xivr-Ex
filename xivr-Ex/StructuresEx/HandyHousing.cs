@@ -1,9 +1,7 @@
-﻿using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud;
+﻿using System;
 using System.Numerics;
+using Dalamud.Game.ClientState.Objects.SubKinds;
 using xivr.Structures;
-using Dalamud.Logging;
-using System;
 
 namespace xivr.StructuresEx
 {
@@ -16,7 +14,7 @@ namespace xivr.StructuresEx
 
         public bool Initalize(string g_LayoutWorld)
         {
-            worldLayout = *(LayoutWorld**)DalamudApi.SigScanner.GetStaticAddressFromSig(g_LayoutWorld);
+            worldLayout = *(LayoutWorld**)xivr_Ex.SigScanner!.GetStaticAddressFromSig(g_LayoutWorld);
             return true;
         }
 
@@ -27,7 +25,7 @@ namespace xivr.StructuresEx
 
         public void Update(XBoxStatus xboxStatus, Matrix4x4 hmdMatrix, Matrix4x4 rhcMatrix, Matrix4x4 lhcMatrix)
         {
-            PlayerCharacter? player = DalamudApi.ClientState.LocalPlayer;
+            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
             if (player != null && worldLayout != null && worldLayout->housing != null && worldLayout->housing->currentMode == HousingModeTypes.Rotate)
             {
                 Matrix4x4 playerRot = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), player.Rotation);

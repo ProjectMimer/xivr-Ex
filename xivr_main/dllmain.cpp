@@ -37,15 +37,18 @@ stBasicTexture dalamudBuffer = stBasicTexture();
 OSK osk = OSK();
 stBasicTexture oskTexture = stBasicTexture();
 
-
 stBasicTexture handWatchList[] = {
 	stBasicTexture(), stBasicTexture(),
 	stBasicTexture(), stBasicTexture(),
 	stBasicTexture(), stBasicTexture(),
-//	stBasicTexture(), stBasicTexture(),
-//	stBasicTexture(), stBasicTexture(),
-//	stBasicTexture(), stBasicTexture(),
+	stBasicTexture(), stBasicTexture(),
+	stBasicTexture(), stBasicTexture(),
+	stBasicTexture(), stBasicTexture(),
+	stBasicTexture(), stBasicTexture(),
+	stBasicTexture(), stBasicTexture(),
+	stBasicTexture(), stBasicTexture(),
 };
+int handWatchCount = (sizeof(handWatchList) / sizeof(stBasicTexture)) / 2;
 
 stMatrixSet matrixSet;
 stMonitorLayout monitors;
@@ -68,8 +71,11 @@ int swapEyes[] = { 1, 0 };
 bool useBackBuffer = false;
 bool isFloating = false;
 bool dMode = false;
+bool showOSK = false;
+bool oldOSK = true;
+bool showUI = true;
+int oskRenderCount = -1;
 POINT vMouse;
-
 
 
 stConfiguration cfg = stConfiguration();
@@ -210,6 +216,31 @@ void forceFlush()
 {
 	PluginLog(outputLog.str().c_str());
 	outputLog.str("");
+}
+
+void RunOSKEnable()
+{
+	showOSK = false;
+	if (device)
+	{
+		oskRenderCount = 50;
+		RECT position = { 100, 100, 700, 200 };
+		if (!osk.LoadOSK(device->Device, &oskTexture, position))
+		{
+			outputLog << "Error creating/finding the OnScreen Keyboard" << std::endl;
+		}
+		oskLayout = osk.GetOSKLayout();
+	}
+}
+
+void RunOSKDisable()
+{
+	showOSK = false;
+	osk.ShowHide(true);
+	osk.UnloadOSK();
+	oskTexture.Release();
+	oskLayout = nullptr;
+	oskRenderCount = -1;
 }
 
 bool CreateBackbufferClone()
@@ -440,23 +471,19 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 			forceFlush();
 		}
 
-		RECT position = { 100, 100, 700, 200 };
-		if (!osk.LoadOSK(device->Device, &oskTexture, position))
-		{
-			outputLog << "Error creating/finding the OnScreen Keyboard" << std::endl;
-		}
-		oskLayout = osk.GetOSKLayout();
-
 		std::string imgFilePaths[] = {
-//			"\\images\\audio_off.png",		"\\images\\audio_on.png",
-//			"\\images\\dalamud_off.png",    "\\images\\dalamud_on.png",
-			"\\images\\keyboard_off.png",   "\\images\\keyboard_on.png",
-			"\\images\\occlusion_off.png",  "\\images\\occlusion_on.png",
+			"\\images\\blank.png",		    "\\images\\blank.png",
+			"\\images\\weapon_off.png",     "\\images\\weapon_on.png",
 			"\\images\\recenter_off.png",   "\\images\\recenter_on.png",
-//			"\\images\\xivr_off.png",       "\\images\\xivr_on.png"
+			"\\images\\keyboard_off.png",   "\\images\\keyboard_on.png",
+			"\\images\\blank.png",          "\\images\\blank.png",
+			"\\images\\occlusion_off.png",  "\\images\\occlusion_on.png",
+			"\\images\\xivr_off.png",       "\\images\\xivr_on.png",
+			"\\images\\dalamud_off.png",    "\\images\\dalamud_on.png",
+			"\\images\\hide_ui_off.png",    "\\images\\hide_ui_on.png"
 		};
 
-		for (int i = 0; i < 6; i++)
+		for (int i = 0; i < (handWatchCount * 2); i++)
 		{
 			struct stat buffer;
 			std::string fullPath = dllPath + imgFilePaths[i];
@@ -666,6 +693,8 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		
 
 		setActionHandlesGame(&steamInput);
+		if (cfg.osk)
+			RunOSKEnable();
 		enabled = true;
 		
 	}
@@ -682,8 +711,10 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 
 __declspec(dllexport) void UnsetDX11()
 {
-	osk.UnloadOSK();
-	oskTexture.Release();
+	RunOSKDisable();
+
+	for (int i = 0; i < (handWatchCount * 2); i++)
+		handWatchList[i].Release();
 
 	if (cfg.vLog)
 		outputLog << std::endl << "StopDX11" << std::endl;
@@ -744,9 +775,21 @@ __declspec(dllexport) void Recenter()
 
 __declspec(dllexport) void UpdateConfiguration(stConfiguration newConfig)
 {
+	if (newConfig.osk == true && cfg.osk == false)
+	{
+		showOSK = false;
+		oldOSK = true;
+		RunOSKEnable();
+	}
+	else if (newConfig.osk == false && cfg.osk == true)
+	{
+		RunOSKDisable();
+	}
+
 	cfg = newConfig;
 	if (svr->isEnabled())
 		svr->MakeIPDOffset();
+
 }
 
 __declspec(dllexport) void SetFramePose()
@@ -801,11 +844,11 @@ __declspec(dllexport) void RenderVR()
 		// Sets the mouse and ray for the next frame with the current tracking data
 		//----
 		if (cfg.motioncontrol)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, poseType::RightHand, dMode, cfg.osk);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dMode, showOSK);
 		else if (cfg.hmdPointing)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, poseType::hmdPosition, dMode, cfg.osk);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dMode, showOSK);
 		else
-			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), poseType::None, dMode, cfg.osk);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dMode, showOSK);
 
 		rend->SetMouseBuffer(screenLayout.hwnd, screenLayout.width, screenLayout.height, vMouse.x, vMouse.y, dMode);
 
@@ -815,14 +858,17 @@ __declspec(dllexport) void RenderVR()
 			forceFlush();
 		}
 
-		ID3D11ShaderResourceView* watchShaderView[12] =
+		ID3D11ShaderResourceView* watchShaderView[18] =
 		{
-			handWatchList[0].pShaderResource, handWatchList[1].pShaderResource,
-			handWatchList[2].pShaderResource, handWatchList[3].pShaderResource,
-			handWatchList[4].pShaderResource, handWatchList[5].pShaderResource,
-			//handWatchList[6].pShaderResource, handWatchList[7].pShaderResource,
-			//handWatchList[8].pShaderResource, handWatchList[9].pShaderResource,
-			//handWatchList[10].pShaderResource, handWatchList[11].pShaderResource,
+			handWatchList[ 0].pShaderResource, handWatchList[ 1].pShaderResource,
+			handWatchList[ 2].pShaderResource, handWatchList[ 3].pShaderResource,
+			handWatchList[ 4].pShaderResource, handWatchList[ 5].pShaderResource,
+			handWatchList[ 6].pShaderResource, handWatchList[ 7].pShaderResource,
+			handWatchList[ 8].pShaderResource, handWatchList[ 9].pShaderResource,
+			handWatchList[10].pShaderResource, handWatchList[11].pShaderResource,
+			handWatchList[12].pShaderResource, handWatchList[13].pShaderResource,
+			handWatchList[14].pShaderResource, handWatchList[15].pShaderResource,
+			handWatchList[16].pShaderResource, handWatchList[17].pShaderResource,
 		};
 		
 		for (int i = 0; i < 2; i++)
@@ -844,9 +890,12 @@ __declspec(dllexport) void RenderVR()
 				rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView);
 			}
 			rend->DoRenderRay(viewport, &matrixSet, 1);
-			rend->DoRender(viewport, uiRenderTarget[i].pShaderResource, &matrixSet, 0, cfg.uiDepth);
-			if (!useBackBuffer)
-				rend->DoRender(viewport, dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
+			if (showUI)
+			{
+				rend->DoRender(viewport, uiRenderTarget[i].pShaderResource, &matrixSet, 0, cfg.uiDepth);
+				if (!useBackBuffer)
+					rend->DoRender(viewport, dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
+			}
 			rend->DoRenderOSK(viewport, oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth);
 			rend->DoRenderWatch(viewport, watchShaderView, &matrixSet, 0);
 		}
@@ -859,7 +908,21 @@ __declspec(dllexport) void RenderVR()
 		}
 
 		device->DeviceContext->CopyResource(dalamudBuffer.pTexture, BackBuffer.pTexture);
-		if(cfg.osk)
+
+		if (cfg.osk && oskRenderCount <= 0 && oldOSK != showOSK)
+		{
+			oldOSK = showOSK;
+			osk.ShowHide(showOSK);
+		}
+		if (oskLayout->haveLayout && oskRenderCount > 0)
+			oskRenderCount--;
+		else if (cfg.osk && !oskLayout->haveLayout)
+		{
+			RunOSKDisable();
+			RunOSKEnable();
+		}
+
+		if (cfg.osk && showOSK)
 			osk.CopyOSKTexture(device->Device, device->DeviceContext, &oskTexture);
 	}
 	LineRender.clear();
@@ -1002,18 +1065,67 @@ int GlobalBoneCounterMax = 5500;
 
 bool rightTriggerClick_Current = false;
 bool rightTriggerClick_Changed = false;
-bool LeftMouseDown = true;
+bool rightBumperClick_Current = false;
+bool rightBumperClick_Changed = false;
+bool LeftMouseDown = false;
+bool RightBumperDown = false;
+XMVECTOR controllerValueDown = { 0, 0, 0, 0 };
 
-void RightTriggerCheck(float curRightTriggerValue)
+void RightBumperCheck(UpdateControllerInput controllerCallback, float curRightBumperValue)
+{
+	bool clickCurrent = (curRightBumperValue > 0.75f);
+
+	rightBumperClick_Changed = false;
+	if (rightBumperClick_Current != clickCurrent)
+	{
+		rightBumperClick_Current = clickCurrent;
+		rightBumperClick_Changed = true;
+	}
+
+	if (rightBumperClick_Current && rightBumperClick_Changed)
+	{
+		RightBumperDown = true;
+		controllerValueDown = matrixSet.rhcMatrix.r[3];
+	}
+	else if (!rightBumperClick_Current && rightBumperClick_Changed)
+	{
+		RightBumperDown = false;
+		controllerValueDown = { 0, 0, 0, 0 };
+	}
+
+	if (RightBumperDown)
+	{
+		XMVECTOR diff = controllerValueDown - matrixSet.rhcMatrix.r[3];
+		controllerValueDown = matrixSet.rhcMatrix.r[3];
+
+		bool status[11];
+		for (int i = 0; i < handWatchCount + 2; i++)
+			status[i] = false;
+
+		rend->GetUIStatus(status, handWatchCount + 2);
+		if (status[handWatchCount + 0])
+		{
+			matrixSet.oskOffset.x -= diff.m128_f32[0] * 2;
+			matrixSet.oskOffset.y -= diff.m128_f32[1] * 2;
+			//matrixSet.oskOffset.z -= diff.m128_f32[2];
+			matrixSet.oskOffset.w = 0;
+		}
+	}
+}
+
+void RightTriggerCheck(UpdateControllerInput controllerCallback, float curRightTriggerValue)
 {
 	buttonLayout watchButtons[] =
 	{
-		//buttonLayout::watch_audio,
-		//buttonLayout::watch_dalamud,
-		buttonLayout::watch_keyboard,
-		buttonLayout::watch_occlusion,
+		buttonLayout::watch_audio,
+		buttonLayout::watch_weapon,
 		buttonLayout::watch_recenter,
-		//buttonLayout::watch_xivr
+		buttonLayout::watch_keyboard,
+		buttonLayout::watch_none,
+		buttonLayout::watch_occlusion,
+		buttonLayout::watch_xivr,
+		buttonLayout::watch_dalamud,
+		buttonLayout::watch_ui
 	};
 
 	rightTriggerClick_Changed = false;
@@ -1032,28 +1144,65 @@ void RightTriggerCheck(float curRightTriggerValue)
 	else if (!rightTriggerClick_Current && rightTriggerClick_Changed)
 	{
 		LeftMouseDown = false;
+ 		vr::InputDigitalActionData_t digitalActionData = { 0 };
+		vr::InputAnalogActionData_t analogActionData = { 0 };
 
-		int handSquareCount = 3;
-		float status[] = { false, false, false };
-		rend->GetWatchStatus(status, handSquareCount);
-		for (int i = 0; i < handSquareCount; i++)
+		bool status[11];
+		for (int i = 0; i < handWatchCount + 2; i++)
+			status[i] = false;
+
+		rend->GetUIStatus(status, handWatchCount + 2);
+
+		if (status[0]) //buttonLayout::watch_audio
 		{
-			if (status[i])
-			{
-				switch (watchButtons[i])
-				{
-				case buttonLayout::watch_keyboard:
-					cfg.osk = !cfg.osk;
-					osk.ShowHide(cfg.osk);
-					break;
-				case buttonLayout::watch_occlusion:
-					cfg.uiDepth = !cfg.uiDepth;
-					break;
-				case buttonLayout::watch_recenter:
-					Recenter();
-					break;
-				}
-			}
+			//digitalActionData.bActive = true;
+			//controllerCallback(buttonLayout::watch_audio, analogActionData, digitalActionData);
+		}
+		
+		if (status[1]) //buttonLayout::watch_weapon
+		{
+			digitalActionData.bActive = true;
+			controllerCallback(buttonLayout::watch_weapon, analogActionData, digitalActionData);
+		}
+
+		if (status[2]) //buttonLayout::watch_recenter
+		{
+			Recenter();
+		}
+
+		if (status[3]) //buttonLayout::watch_keyboard
+		{
+			if (cfg.osk)
+				showOSK = !showOSK;
+		}
+
+		if (status[4]) //buttonLayout::watch_none)
+		{
+			digitalActionData.bActive = true;
+			controllerCallback(buttonLayout::watch_none, analogActionData, digitalActionData);
+		}
+
+		if (status[5]) //buttonLayout::watch_occlusion)
+		{
+			digitalActionData.bActive = true;
+			controllerCallback(buttonLayout::watch_occlusion, analogActionData, digitalActionData);
+		}
+
+		if (status[6]) //buttonLayout::watch_xivr)
+		{
+			digitalActionData.bActive = true;
+			controllerCallback(buttonLayout::watch_xivr, analogActionData, digitalActionData);
+		}
+
+		if (status[7]) //buttonLayout::watch_dalamud)
+		{
+			digitalActionData.bActive = true;
+			controllerCallback(buttonLayout::watch_dalamud, analogActionData, digitalActionData);
+		}
+
+		if (status[8]) //buttonLayout::watch_ui
+		{
+			showUI = !showUI;
 		}
 	}
 }
@@ -1199,12 +1348,15 @@ __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCall
 				controllerCallback(buttonLayout::xbox_left_stick_click, analogActionData, digitalActionData);
 			if (vr::VRInput()->GetAnalogActionData(steamInput.game.xbox_right_trigger, &analogActionData, sizeof(analogActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && analogActionData.bActive == true)
 			{
-				RightTriggerCheck(analogActionData.x);
+				RightTriggerCheck(controllerCallback, analogActionData.x);
 				controllerCallback(buttonLayout::xbox_right_trigger, analogActionData, digitalActionData);
 			}
 
 			if (vr::VRInput()->GetAnalogActionData(steamInput.game.xbox_right_bumper, &analogActionData, sizeof(analogActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && analogActionData.bActive == true)
+			{
+				RightBumperCheck(controllerCallback, analogActionData.x);
 				controllerCallback(buttonLayout::xbox_right_bumper, analogActionData, digitalActionData);
+			}
 			if (vr::VRInput()->GetDigitalActionData(steamInput.game.xbox_right_stick_click, &digitalActionData, sizeof(digitalActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && digitalActionData.bActive == true)
 				controllerCallback(buttonLayout::xbox_right_stick_click, analogActionData, digitalActionData);
 			if (vr::VRInput()->GetDigitalActionData(steamInput.game.xbox_pad_up, &digitalActionData, sizeof(digitalActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && digitalActionData.bActive == true)

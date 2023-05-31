@@ -569,47 +569,68 @@ void BasicRenderer::SetMousePosition(HWND hwnd, int mouseX, int mouseY, bool for
 
 void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX, int mouseY, bool dalamudMode)
 {
-	if (mouseX == width / 2 && mouseY == height / 2)
-	{
-		mouseBuffer.radiusR.x = 0.000f;
-		mouseBuffer.radiusB.x = 0.000f;
-	}
-	else
-	{
-		mouseBuffer.radiusR.x = 0.0025f;
-		mouseBuffer.radiusB.x = 0.0025f;
-		if (dalamudMode == false)
-			mouseBuffer.radiusB.x = 0.0f;
-		else if (dalamudMode == true)
-			mouseBuffer.radiusR.x = 0.0f;
-	}
-	POINT p;
-	GetCursorPos(&p);
-	ScreenToClient(hwnd, &p);
+	//----
+	// check and see if the main ui is the only object being interacted with
+	// and only show the dot on the main ui if the ray is over the main ui
+	//----
+	bool showOnUI = curvedUIAtUI;
+	if (oskAtUI)
+		showOnUI = false;
+	for (int i = 0; i < handSquareCount; i++)
+		if(handSquareAtUI[i])
+			showOnUI = false;
 
-	mouseBuffer.radiusR.y = 0.0f;
-	mouseBuffer.coordsR.x = mouseX / (float)width;
-	mouseBuffer.coordsR.y = mouseY / (float)height;
-	mouseBuffer.radiusB.y = 0.0f;
-	mouseBuffer.coordsB.x = p.x / (float)width;
-	mouseBuffer.coordsB.y = p.y / (float)height;
-	MapResource(pMouseBuffer, &mouseBuffer, sizeof(stMouseBuffer));
+	if (showOnUI)
+	{
+		if (mouseX == width / 2 && mouseY == height / 2)
+		{
+			mouseBuffer.radiusR.x = 0.000f;
+			mouseBuffer.radiusB.x = 0.000f;
+		}
+		else
+		{
+			mouseBuffer.radiusR.x = 0.0025f;
+			mouseBuffer.radiusB.x = 0.0025f;
+			if (dalamudMode == false)
+				mouseBuffer.radiusB.x = 0.0f;
+			else if (dalamudMode == true)
+				mouseBuffer.radiusR.x = 0.0f;
+		}
+
+		POINT p;
+		GetCursorPos(&p);
+		ScreenToClient(hwnd, &p);
+
+		mouseBuffer.radiusR.y = 0.0f;
+		mouseBuffer.coordsR.x = mouseX / (float)width;
+		mouseBuffer.coordsR.y = mouseY / (float)height;
+		mouseBuffer.radiusB.y = 0.0f;
+		mouseBuffer.coordsB.x = p.x / (float)width;
+		mouseBuffer.coordsB.y = p.y / (float)height;
+		MapResource(pMouseBuffer, &mouseBuffer, sizeof(stMouseBuffer));
+	}
 }
 
-void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, poseType inputRayType, bool dalamudMode, bool showOSK)
+void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputRayType, bool dalamudMode, bool showOSK)
 {
 	struct intersectLayout
 	{
 		RenderObject* item;
 		bool* atUI;
 		stScreenLayout* layout;
+		XMVECTOR intersection;
+		float dist;
+		float multiplyer;
+		bool updateDistance;
+		bool forceMouse;
+		bool fromCenter;
 	};
 
 
 	for (int i = 0; i < handSquareCount; i++) { handSquareAtUI[i] = false; }
 	oskAtUI = false;
 	curvedUIAtUI = false;
-	
+
 
 	static float needsRecenter = false;
 	float aspect = (float)screenLayout->width / (float)screenLayout->height;
@@ -620,13 +641,18 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 	XMMATRIX moveMatrix = XMMatrixTranslation(0.0f, 0.0f, -1.0f);
 	curvedUI.SetObjectMatrix(aspectScaleMatrix * uiScaleMatrix * uiZMatrix * moveMatrix);
 
-	aspect = (float)oskLayout->width / (float)oskLayout->height;
+	aspect = 1;
+	if (oskLayout != nullptr && oskLayout->haveLayout)
+		aspect = (float)oskLayout->width / (float)oskLayout->height;
 	XMMATRIX aspectScaleMatrixOSK = XMMatrixScaling(aspect, 1, 1);
-	XMMATRIX rotateMatrixOSK = XMMatrixRotationX(-30.0f * (M_PI / 180.0f));
-	XMMATRIX moveMatrixOSK = XMMatrixTranslation(0.0f, -0.4f, -0.9f);
+	XMMATRIX rotateMatrixOSK = XMMatrixRotationX(-30.0f * ((float)M_PI / 180.0f));
+	XMMATRIX moveMatrixOSK = XMMatrixTranslation(0.0f, -0.4f, -0.99f);
 	XMMATRIX scaleMatrixOSK = XMMatrixScaling(0.08f, 0.08f, 0.08f);
-	XMMATRIX scaleOSK = (showOSK) ? XMMatrixScaling(1.0f, 1.0f, 1.0f) : XMMatrixScaling(0.0001f, 0.0001f, 0.0001f);
-	osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * rotateMatrixOSK * uiZMatrix * moveMatrixOSK * scaleOSK);
+	XMMATRIX scaleOSK = (oskLayout != nullptr && oskLayout->haveLayout && showOSK) ? XMMatrixScaling(1.0f, 1.0f, 1.0f) : XMMatrixScaling(0.0001f, 0.0001f, 0.0001f);
+	XMMATRIX offsetMatrixOSK = XMMatrixTranslation(oskOffset.x, oskOffset.y, oskOffset.z);
+	//XMMATRIX offsetMatrixOSK = XMMatrixRotationY(-oskOffset.x * 3);
+	osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * rotateMatrixOSK * uiZMatrix * moveMatrixOSK * offsetMatrixOSK * scaleOSK);
+	//osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * uiZMatrix * offsetMatrixOSK * scaleOSK);
 
 	XMMATRIX scaleMatrixRHC = XMMatrixScaling(0.025f, 0.025f, 0.05f);
 	colorCube.SetObjectMatrix(scaleMatrixRHC * rayMatrix);
@@ -636,8 +662,6 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 		0, 0, 0,	0.0f, 0.0f, 0.0f, 0.0f,
 		0, 0, 0,	0.0f, 0.0f, 0.0f, 0.0f,
 	};
-
-	int mouseMultiplyer = 3;
 
 	if (inputRayType == poseType::hmdPosition || inputRayType == poseType::RightHand)
 	{
@@ -660,8 +684,6 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 			lineData[10] = 0.498f;
 			lineData[11] = 0.0f;
 			lineData[12] = 1.0f;
-
-			mouseMultiplyer = 1;
 		}
 
 		//----
@@ -669,9 +691,12 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 		//----
 		std::list<intersectLayout> intersectList = std::list<intersectLayout>();
 		for (int i = 0; i < handSquareCount; i++)
-			intersectList.push_back({ &handSquare[i], &handSquareAtUI[i], nullptr });
-		intersectList.push_back({ &osk, &oskAtUI, oskLayout });
-		intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout });
+			intersectList.push_back({ &handSquare[i], &handSquareAtUI[i], nullptr, { 0, 0, 0 }, 0, 0, true, false, false });
+		intersectList.push_back({ &osk, &oskAtUI, oskLayout, { 0, 0, 0 }, 0, 1, true, true, false });
+		if(dalamudMode)
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 1, false, false, true });
+		else
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 3, false, false, true });
 
 		//----
 		// Go though all interactable items and check to see if the ray interacts with something
@@ -679,72 +704,61 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 		
 		bool intersectFound = false;
 		float dist = -9999;
-		XMVECTOR intersection = { 0.0f, 0.0f, 0.0f };
-		for (intersectLayout i : intersectList)
+		intersectLayout closest = intersectLayout();
+		for (std::list<intersectLayout>::iterator it = intersectList.begin(); it != intersectList.end(); ++it)
 		{
-			if (i.layout == nullptr || i.layout->haveLayout)
+			if (it->layout == nullptr || it->layout->haveLayout)
 			{
-				XMVECTOR checkIntersection = { 0.0f, 0.0f, 0.0f };
-				float checkDist = 0;
-				*(i.atUI) = i.item->RayIntersection(origin, norm, &checkIntersection, &checkDist, &logError);
-				if (*(i.atUI) == true && checkDist >= dist)
+				*(it->atUI) = it->item->RayIntersection(origin, norm, &it->intersection, &it->dist, &logError);
+				if (*(it->atUI) == true && it->dist >= dist)
 				{
-					dist = checkDist;
-					intersection = checkIntersection;
-					intersectFound = true;
+					dist = it->dist;
+					closest = *it;
 				}
 			}
 		}
 
-		if (intersectFound)
+		if (closest.item != nullptr)
 		{
-			if (oskAtUI || curvedUIAtUI)
+			HWND useHWND = 0;
+			if (closest.layout != nullptr)
 			{
-				stScreenLayout* curLayout = nullptr;
-				bool forceOverride = false;
-				if (curvedUIAtUI)
-				{
-					curLayout = screenLayout;
-				}
-				if (oskAtUI)
-				{
-					curLayout = oskLayout;
-					mouseMultiplyer = 1;
-					forceOverride = true;
-				}
-
 				POINT halfScreen = POINT();
-				halfScreen.x = (curLayout->width / 2);
-				halfScreen.y = (curLayout->height / 2);
+				halfScreen.x = (closest.layout->width / 2);
+				halfScreen.y = (closest.layout->height / 2);
 
 				//----
 				// converts uv (0.0->1.0) to screen coords | width/height
 				//----
-				intersection.m128_f32[0] = intersection.m128_f32[0] * curLayout->width;
-				intersection.m128_f32[1] = intersection.m128_f32[1] * curLayout->height;
+				closest.intersection.m128_f32[0] = closest.intersection.m128_f32[0] * closest.layout->width;
+				closest.intersection.m128_f32[1] = closest.intersection.m128_f32[1] * closest.layout->height;
 
 				//----
 				// Changes anchor from top left corner to middle of screen
 				//----
-				if (curvedUIAtUI)
+				if (closest.fromCenter)
 				{
-					intersection.m128_f32[0] = halfScreen.x + ((intersection.m128_f32[0] - halfScreen.x) / mouseMultiplyer);
-					intersection.m128_f32[1] = halfScreen.y + ((intersection.m128_f32[1] - halfScreen.y) / mouseMultiplyer);
+					closest.intersection.m128_f32[0] = halfScreen.x + ((closest.intersection.m128_f32[0] - halfScreen.x) / closest.multiplyer);
+					closest.intersection.m128_f32[1] = halfScreen.y + ((closest.intersection.m128_f32[1] - halfScreen.y) / closest.multiplyer);
 				}
+				useHWND = closest.layout->hwnd;
+			}
 
-				end = origin + (norm * dist);
-				//lineData[7] = end.m128_f32[0];
-				//lineData[8] = end.m128_f32[1];
-				//lineData[9] = end.m128_f32[2];
-				lineData[10] = 1.0f;
-				lineData[11] = 1.0f;
-				lineData[12] = 1.0f;
+			end = origin + (norm * dist);
+			if (closest.updateDistance)
+			{
+				lineData[7] = end.m128_f32[0];
+				lineData[8] = end.m128_f32[1];
+				lineData[9] = end.m128_f32[2];
+			}
+			lineData[10] = 1.0f;
+			lineData[11] = 1.0f;
+			lineData[12] = 1.0f;
 
-				if (inputRayType == poseType::RightHand)
-				{
-					needsRecenter = true;
-					SetMousePosition(curLayout->hwnd, (int)intersection.m128_f32[0], (int)intersection.m128_f32[1], forceOverride);
-				}
+			if (inputRayType == poseType::RightHand)
+			{
+				needsRecenter = true;
+				SetMousePosition(useHWND, (int)closest.intersection.m128_f32[0], (int)closest.intersection.m128_f32[1], closest.forceMouse);
 			}
 		}
 		else
@@ -756,9 +770,7 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 				halfScreen.y = (screenLayout->height / 2);
 
 				needsRecenter = false;
-				intersection.m128_f32[0] = (float)halfScreen.x;
-				intersection.m128_f32[1] = (float)halfScreen.y;
-				SetMousePosition(screenLayout->hwnd, (int)intersection.m128_f32[0], (int)intersection.m128_f32[1]);
+				SetMousePosition(screenLayout->hwnd, halfScreen.x, halfScreen.y, false);
 			}
 		}
 		if (inputRayType == poseType::RightHand)
@@ -1076,9 +1088,9 @@ void BasicRenderer::DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceV
 	int y = 0;
 	for (int i = 0; i < handSquareCount; i++)
 	{
-		XMMATRIX ScaleMatrix = XMMatrixScaling(0.025f, 0.025f, 0.025f);
-		XMMATRIX moveMatrix = XMMatrixTranslation((x * 2) * 0.025f, (y * 2) * 0.025f, 0.02f);
-		XMMATRIX rotateMatrix = XMMatrixRotationY(90.0f * (M_PI / 180.0f)) * XMMatrixRotationZ(180.0f * (M_PI / 180.0f));
+		XMMATRIX ScaleMatrix = XMMatrixScaling(0.015f, 0.015f, 0.015f);
+		XMMATRIX moveMatrix = XMMatrixTranslation((x * 2) * 0.015f, (y * 2) * 0.015f, 0.02f);
+		XMMATRIX rotateMatrix = XMMatrixRotationY(90.0f * ((float)M_PI / 180.0f)) * XMMatrixRotationZ(180.0f * ((float)M_PI / 180.0f));
 
 		handSquare[i].SetObjectMatrix(ScaleMatrix * moveMatrix * rotateMatrix * matrixSet->lhcMatrix);
 		//handSquare[i].SetObjectMatrix(moveMatrix * matrixSet->lhcMatrix);
@@ -1104,11 +1116,15 @@ void BasicRenderer::DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceV
 	}
 }
 
-void BasicRenderer::GetWatchStatus(float* status, int count)
+void BasicRenderer::GetUIStatus(bool* status, int count)
 {
-	int maxCount = min(count, handSquareCount);
-	for (int i = 0; i < maxCount; i++)
-		status[i] = handSquareAtUI[i];
+	if (count == (handSquareCount + 2))
+	{
+		for (int i = 0; i < handSquareCount; i++)
+			status[i] = handSquareAtUI[i];
+		status[handSquareCount + 0] = oskAtUI;
+		status[handSquareCount + 1] = curvedUIAtUI;
+	}
 }
 
 void BasicRenderer::Release()
