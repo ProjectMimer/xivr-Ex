@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Collections.Generic;
 using Dalamud.Logging;
 using FFXIVClientStructs.Havok;
+using System.Runtime.InteropServices;
 
 namespace xivr.Structures
 {
@@ -179,7 +180,16 @@ namespace xivr.Structures
 
         public void Output(int indent = 0, bool runChild = false)
         {
+            Matrix4x4 MatrixA = Matrix4x4.CreateFromQuaternion(transform.Rotation.Convert());
+            Vector3 anglesR = xivr_hooks.GetAngles(MatrixA);
+            ToEulerAngles(transform.Rotation.Convert(), out float pitch, out float yaw, out float roll);
+
+            Quaternion q = Quaternion.CreateFromYawPitchRoll(yaw, pitch, roll);
+
+
             string spacer = new String(' ', indent * 2);
+            
+            PluginLog.Log($"{spacer} {anglesR.X * Rad2Deg} {anglesR.Y * Rad2Deg} {anglesR.Z * Rad2Deg} | {pitch * Rad2Deg} {yaw * Rad2Deg} {roll * Rad2Deg} | {q.X} {q.Y} {q.Z} {q.W}");
             PluginLog.Log($"{spacer} {parentId} | {(BoneListEn)boneKey} | {transform.Translation.X} {transform.Translation.Y} {transform.Translation.Z} | {transform.Rotation.X} {transform.Rotation.Y} {transform.Rotation.Z} {transform.Rotation.W}");
             if (runChild == true)
                 foreach (KeyValuePair<int, Bone> child in children)
@@ -190,8 +200,6 @@ namespace xivr.Structures
         {
             Vector3 anglesR = xivr_hooks.GetAngles(boneMatrix);
             Vector3 anglesI = xivr_hooks.GetAngles(boneMatrixI);
-
-            
 
             ToEulerAngles(transform.Rotation.Convert(), out float pitch, out float yaw, out float roll);
 
@@ -212,22 +220,32 @@ namespace xivr.Structures
 
         public void ToEulerAngles(Quaternion q, out float pitch, out float yaw, out float roll)
         {
-            // roll (x-axis rotation)
-            float sinr_cosp = 2 * (q.W * q.X + q.Y * q.Z);
-            float cosr_cosp = 1 - 2 * (q.X * q.X + q.Y * q.Y);
-            pitch = MathF.Atan2(sinr_cosp, cosr_cosp);
+            float sqw = q.W * q.W;
+            float sqx = q.X * q.X;
+            float sqy = q.Y * q.Y;
+            float sqz = q.Z * q.Z;
+            float unit = sqx + sqy + sqz + sqw; // if normalised is one, otherwise is correction factor
+            float test = q.X * q.W - q.Y * q.Z;
 
-            // pitch (y-axis rotation)
-            float sinp = 2 * (q.W * q.Y - q.Z * q.X);
-            if (Math.Abs(sinp) >= 1)
-                yaw = MathF.CopySign(MathF.PI / 2, sinp);
-            else
-                yaw = MathF.Asin(sinp);
+            if (test > 0.49975f * unit)
+            {   // singularity at north pole
+                yaw = -2f * MathF.Atan2(q.Y, q.X);
+                pitch = -MathF.PI / 2f;
+                roll = 0;
+                return;
+            }
+            if (test < -0.49975f * unit)
+            {   // singularity at south pole
+                yaw = 2f * MathF.Atan2(q.Y, q.X);
+                pitch = MathF.PI / 2f;
+                roll = 0;
+                return;
+            }
 
-            // yaw (z-axis rotation)
-            float siny_cosp = 2 * (q.W * q.Z + q.X * q.Y);
-            float cosy_cosp = 1 - 2 * (q.Y * q.Y + q.Z * q.Z);
-            roll = MathF.Atan2(siny_cosp, cosy_cosp);
+            Quaternion q1 = new Quaternion(q.W, q.Z, q.X, q.Y);
+            yaw = -1 * MathF.Atan2(2f * (q1.X * q1.W + q1.Y * q1.Z), 1f - 2f * (q1.Z * q1.Z + q1.W * q1.W));   // Yaw
+            pitch = -1 * MathF.Asin(2f * (q1.X * q1.Z - q1.W * q1.Y));                                         // Pitch
+            roll = -1 * MathF.Atan2(2f * (q1.X * q1.Y + q1.Z * q1.W), 1f - 2f * (q1.Y * q1.Y + q1.Z * q1.Z));  // Roll
         }
 
         Quaternion FromToRotation(Vector3 aFrom, Vector3 aTo)

@@ -857,6 +857,7 @@ __declspec(dllexport) void RenderVR()
 			outputLog << rend->GetErrors();
 			forceFlush();
 		}
+		
 
 		ID3D11ShaderResourceView* watchShaderView[18] =
 		{
@@ -889,6 +890,9 @@ __declspec(dllexport) void RenderVR()
 				//rend->SetClearColor(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, isFloating);
 				rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView);
 			}
+			rend->RenderLines(LineRender);
+			rend->DoRenderLine(viewport, &matrixSet, 1);
+
 			rend->DoRenderRay(viewport, &matrixSet, 1);
 			if (showUI)
 			{
@@ -898,6 +902,7 @@ __declspec(dllexport) void RenderVR()
 			}
 			rend->DoRenderOSK(viewport, oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth);
 			rend->DoRenderWatch(viewport, watchShaderView, &matrixSet, 0);
+
 		}
 
 		svr->Render(BackBufferCopy[sIdL].pTexture, DepthBufferCopy[sIdL].pTexture, BackBufferCopy[sIdR].pTexture, DepthBufferCopy[sIdR].pTexture);
@@ -914,9 +919,9 @@ __declspec(dllexport) void RenderVR()
 			oldOSK = showOSK;
 			osk.ShowHide(showOSK);
 		}
-		if (oskLayout->haveLayout && oskRenderCount > 0)
+		if (oskLayout != nullptr && oskLayout->haveLayout && oskRenderCount > 0)
 			oskRenderCount--;
-		else if (cfg.osk && !oskLayout->haveLayout)
+		else if (cfg.osk && oskLayout != nullptr && !oskLayout->haveLayout)
 		{
 			RunOSKDisable();
 			RunOSKEnable();
@@ -975,19 +980,6 @@ __declspec(dllexport) void RenderFloatingScreen(POINT virtualMouse, bool dalamud
 
 __declspec(dllexport) void SetTexture()
 {
-	if (enabled)
-	{
-		if (cfg.mode2d)
-		{
-			//device->DeviceContext->CopyResource(BackBufferCopy[0].pTexture, gameRenderTexture->Texture);
-			//device->DeviceContext->CopyResource(BackBufferCopy[1].pTexture, gameRenderTexture->Texture);
-		}
-		else
-		{
-			//device->DeviceContext->CopyResource(BackBufferCopy[threadedEye].pTexture, gameRenderTexture->Texture);
-			//device->DeviceContext->CopyResource(DepthBufferCopy[threadedEye].pTexture, DepthBuffer.pTexture);
-		}
-	}
 }
 
 __declspec(dllexport) POINT GetBufferSize()

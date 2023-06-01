@@ -833,7 +833,6 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rt
 	devcon->PSSetSamplers(0, 1, &pSampleState);
 
 
-
 	if (isOrthog)
 	{
 		matrixBuffer.world = XMMatrixIdentity();
@@ -988,10 +987,6 @@ void BasicRenderer::DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet
 	//----
 	// Renders other lines
 	//----
-	devcon->RSSetViewports(1, &viewport);
-	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-	devcon->OMSetDepthStencilState(pDepthStateOff, 0);
-	devcon->OMSetBlendState(pBlendState[blendIndex], blendFactor, 0xffffffff);
 	if (lineObj.GetVertexCount() > 0)
 	{
 		matrixBuffer.world = lineObj.GetObjectMatrix(false, true);
@@ -1000,6 +995,10 @@ void BasicRenderer::DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet
 		matrixBuffer.projection = XMMatrixTranspose(matrixSet->projectionMatrix);
 		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
 
+		devcon->RSSetViewports(1, &viewport);
+		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+		devcon->OMSetDepthStencilState(pDepthStateOff, 0);
+		devcon->OMSetBlendState(pBlendState[blendIndex], blendFactor, 0xffffffff);
 		lineObj.Render();
 	}
 	lineObj.Release();

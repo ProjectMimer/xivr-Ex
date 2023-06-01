@@ -584,7 +584,6 @@ namespace xivr
 
         public void DrawBones(Skeleton* skeleton)
         {
-            boneLayout.Clear();
             if (skeleton == null)
                 return;
 
@@ -602,7 +601,6 @@ namespace xivr
                     continue;
 
                 UInt64 objPose64 = (UInt64)objPose;
-                boneLayout.Add(objPose64, new Dictionary<BoneList, short>());
 
                 //----
                 // Loops though the pose bones and updates the ones that have tracking
@@ -624,8 +622,6 @@ namespace xivr
                     }
 
                     BoneList boneKey = boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._root_);
-                    boneLayout[objPose64].Add(boneKey, i);
-                    //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
 
                     if (parentId < 0)
                         boneArray[i] = new Bone(boneKey, i, parentId, null, objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
@@ -1780,6 +1776,7 @@ namespace xivr
         {
             UInt64 retVal = 0;
             if (hooksSet && gameMode.Current == CameraModes.FirstPerson && rawBoneList.ContainsKey((UInt64)pose))
+            //if (hooksSet && rawBoneList.ContainsKey((UInt64)pose))
             {
                 Dictionary<UInt64, Bone> parentList = new Dictionary<UInt64, Bone>();
                 foreach (Bone item in rawBoneList[(UInt64)pose])
@@ -3089,22 +3086,6 @@ namespace xivr
 
                 if (bonedCharacter != null)
                 {
-
-                   
-                    /*
-                    Character.MountContainer* mountContainer = &bonedCharacter->Mount;
-                    if (mountContainer != null)
-                    {
-                        GameObject* bonedMount = (GameObject*)mountContainer->MountObject;
-                        Model* mount = (Model*)bonedMount->DrawObject;
-                        UInt64 bonedMountAddr = (UInt64)mountContainer->MountObject;
-                        *(float*)(bonedMountAddr + 0xF0) = 0.0f;
-                        if (mount != null)
-                            mount->basePosition.Rotation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), bonedMount->Rotation).Convert();
-                    }
-                    */
-
-
                     //----
                     // Gets the skeletal system
                     //----
@@ -3212,7 +3193,7 @@ namespace xivr
                                     */
 
                                     //outputBonesOnce = true;
-                                    //boneArray[0].SetReferenceChildren();
+                                    //boneArray[0].SetReference(true, false);
                                     //boneArray[0].Output();
                                     //boneArray[0].Output(0, true);
                                 }
@@ -3300,7 +3281,7 @@ namespace xivr
                                         }
                                     }
 
-                                    if (waist >= 0) boneArray[waist].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
+                                    //if (waist >= 0) boneArray[waist].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
                                     if (scabbardL >= 0) boneArray[scabbardL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
                                     if (scabbardR >= 0) boneArray[scabbardR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
                                     if (sheatheL >= 0) boneArray[sheatheL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
@@ -3531,17 +3512,18 @@ namespace xivr
                     if (model->CullType == ModelCullTypes.InsideCamera && (byte)bonedObject->TargetableStatus == 255)
                         model->CullType = ModelCullTypes.Visible;
 
-
                     if ((int)tmpObj.ObjectKind == 1 || //player
                         (int)tmpObj.ObjectKind == 2 || // BattleNpc
                         (int)tmpObj.ObjectKind == 3 || // EventNpc
                         (int)tmpObj.ObjectKind == 8 || // mount
                         (int)tmpObj.ObjectKind == 9 || // Companion
-                        (int)tmpObj.ObjectKind == 10) // Retainer
+                        (int)tmpObj.ObjectKind == 10)  // Retainer
                     {
+                        Skeleton* skeleton = model->skeleton;
+                        //DrawBones(skeleton);
 
                         DrawDataContainer* drawData = &bonedCharacter->DrawData;
-                        if (drawData != null)
+                        if (drawData != null && gameMode.Current == CameraModes.FirstPerson)
                         {
                             UInt64 mhOffset = (UInt64)(&drawData->MainHand);
                             if (mhOffset != 0)
