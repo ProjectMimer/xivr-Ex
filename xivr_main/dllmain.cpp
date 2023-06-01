@@ -896,7 +896,7 @@ __declspec(dllexport) void RenderVR()
 			rend->DoRenderRay(viewport, &matrixSet, 1);
 			if (showUI)
 			{
-				rend->DoRender(viewport, uiRenderTarget[i].pShaderResource, &matrixSet, 0, cfg.uiDepth);
+				rend->DoRender(viewport, uiRenderTarget[0].pShaderResource, &matrixSet, 0, cfg.uiDepth);
 				if (!useBackBuffer)
 					rend->DoRender(viewport, dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
 			}

@@ -2,7 +2,7 @@
   "Author": "Marulu, StreetRat",
   "Name": "XIVR-Ex - VR Mod",
   "InternalName": "xivr-Ex",
-  "AssemblyVersion": "0.0.4.2",
+  "AssemblyVersion": "0.0.4.3",
   "Description": "* REQUIRES XIVR_PRELOAD * \nMod to allow vr + extra options",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/ProjectMimer/xivr",
