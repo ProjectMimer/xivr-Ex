@@ -10,9 +10,9 @@
     "utility"
   ],
   "DalamudApiLevel": 8,
-  "LoadPriority": 0,
   "LoadRequiredState": 2,
   "LoadSync": true,
+  "LoadPriority": 0,
   "Punchline": "Mod to allow VR",
   "AcceptsFeedback": true
 }
