@@ -6,8 +6,10 @@ namespace xivr.Structures
 	{
 		movement,
 		rotation,
-        leftHandPose,
-        rightHandPose,
+        leftHandTipPose,
+        rightHandTipPose,
+        lefthandPalmPose,
+        righthandPalmPose,
         leftHandAnim,
         rightHandAnim,
         leftClick,

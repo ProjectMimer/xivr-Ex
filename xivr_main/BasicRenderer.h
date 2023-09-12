@@ -94,6 +94,7 @@ class BasicRenderer
 	bool oskAtUI = false;
 	bool handSquareAtUI[9] = {};
 	int handSquareCount = sizeof(handSquare) / sizeof(RenderObject);
+	bool needsRecenter = true;
 
 	bool haveSaved = false;
 	ID3D11BlendState* savedBlendState = nullptr;
@@ -145,8 +146,8 @@ public:
 	void SetRenderTarget(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv);
 	void SetClearColor(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv, float color[], bool clearDepth = false);
 	void SetBlendIndex(int index);
-	void DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet, int blendIndex);
-	void DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet, int blendIndex);
+	void DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet);
+	void DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet);
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isOrthog = false, bool moveOrthog = false);
 	void DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth);
 	void DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex);

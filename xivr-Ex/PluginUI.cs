@@ -67,6 +67,9 @@ namespace xivr
                 if (ImGui.Checkbox(lngOptions.hmdloc_Line1, ref xivr_Ex.cfg!.data.hmdloc))
                     xivr_Ex.Plugin.doUpdate = true;
 
+                if (ImGui.Checkbox(lngOptions.immersiveMovement_Line1, ref xivr_Ex.cfg!.data.immersiveMovement))
+                    xivr_Ex.Plugin.doUpdate = true;
+
                 if (ImGui.Checkbox(lngOptions.vertloc_Line1, ref xivr_Ex.cfg!.data.vertloc))
                     xivr_Ex.Plugin.doUpdate = true;
 
@@ -146,35 +149,35 @@ namespace xivr
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountX_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:xoff", ref xivr_Ex.cfg!.data.offsetAmountX, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:xoff", ref xivr_Ex.cfg!.data.offsetAmountX, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountY_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:yoff", ref xivr_Ex.cfg!.data.offsetAmountY, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:yoff", ref xivr_Ex.cfg!.data.offsetAmountY, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountZ_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:zoff", ref xivr_Ex.cfg!.data.offsetAmountZ, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:zoff", ref xivr_Ex.cfg!.data.offsetAmountZ, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountYFPS_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:fpsyoff", ref xivr_Ex.cfg!.data.offsetAmountYFPS, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:fpsyoff", ref xivr_Ex.cfg!.data.offsetAmountYFPS, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountZFPS_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:fpszoff", ref xivr_Ex.cfg!.data.offsetAmountZFPS, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:fpszoff", ref xivr_Ex.cfg!.data.offsetAmountZFPS, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountYFPSMount_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:mountyoff", ref xivr_Ex.cfg!.data.offsetAmountYFPSMount, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:mountyoff", ref xivr_Ex.cfg!.data.offsetAmountYFPSMount, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountZFPSMount_Line1); ImGui.SameLine();
-            if (ImGui.SliderFloat("##DrawUISetings:mountzoff", ref xivr_Ex.cfg!.data.offsetAmountZFPSMount, -150, 150, "%.0f"))
+            if (ImGui.SliderFloat("##DrawUISetings:mountzoff", ref xivr_Ex.cfg!.data.offsetAmountZFPSMount, -100, 100, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.targetCursorSize_Line1); ImGui.SameLine();
-            if (ImGui.SliderInt("##DrawUISetings:targetcur", ref xivr_Ex.cfg!.data.targetCursorSize, 50, 255))
+            if (ImGui.SliderInt("##DrawUISetings:targetcur", ref xivr_Ex.cfg!.data.targetCursorSize, 25, 255))
                 xivr_Ex.Plugin.doUpdate = true;
 
             if (ImGui.Checkbox(lngOptions.ultrawideshadows_Line1, ref xivr_Ex.cfg!.data.ultrawideshadows))

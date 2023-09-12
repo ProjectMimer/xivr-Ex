@@ -61,7 +61,7 @@ int depthID = 8;
 HWND oskHWND;
 HANDLE oskSurface = 0;
 D3D11_VIEWPORT viewport = D3D11_VIEWPORT();
-D3D11_VIEWPORT viewports[2] = { D3D11_VIEWPORT(), D3D11_VIEWPORT() };
+D3D11_VIEWPORT viewports[] = { D3D11_VIEWPORT(), D3D11_VIEWPORT(), D3D11_VIEWPORT() };
 int threadedEyeIndexCount = 0;
 int backbufferSwap = 0;
 bool enabled = false;
@@ -70,12 +70,10 @@ bool logging = false;
 int swapEyes[] = { 1, 0 };
 bool useBackBuffer = false;
 bool isFloating = false;
-bool dMode = false;
 bool showOSK = false;
 bool oldOSK = true;
 bool showUI = true;
 int oskRenderCount = -1;
-POINT vMouse;
 
 
 stConfiguration cfg = stConfiguration();
@@ -96,7 +94,7 @@ InternalLogging PluginLog;
 
 extern "C"
 {
-	__declspec(dllexport) bool SetDX11(unsigned long long struct_deivce, unsigned long long rtm, const char* dllPath);
+	__declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned long long rtm, const char* dllPath);
 	__declspec(dllexport) void UnsetDX11();
 	__declspec(dllexport) stTexture* GetRenderTexture(int curEye);
 	__declspec(dllexport) stTexture* GetDepthTexture(int curEye);
@@ -108,10 +106,9 @@ extern "C"
 	__declspec(dllexport) uMatrix GetFramePose(poseType poseType, int eye);
 	__declspec(dllexport) fingerHandLayout GetSkeletalPose(poseType poseType);
 	__declspec(dllexport) void SetThreadedEye(int eye);
-	__declspec(dllexport) void RenderVR();
-	__declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD, XMMATRIX curViewMatrixWithoutHMD, POINT virtualMouse, bool dalamudMode);
-	__declspec(dllexport) void RenderFloatingScreen(POINT virtualMouse, bool dalamudMode);
-	__declspec(dllexport) void SetTexture();
+	__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, bool dalamudMode, bool floatingUI);
+	__declspec(dllexport) void RenderUI();
+	__declspec(dllexport) void RenderUID(unsigned long long struct_deivce, XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD);
 	__declspec(dllexport) POINT GetBufferSize();
 	__declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height);
 	__declspec(dllexport) void MoveWindowPos(HWND hwnd, int adapterId, bool reset);
@@ -126,85 +123,26 @@ extern "C"
 
 
 
-BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
-                       LPVOID lpReserved
-                     )
+BOOL APIENTRY DllMain(HMODULE hModule,
+	DWORD  ul_reason_for_call,
+	LPVOID lpReserved
+)
 {
-    switch (ul_reason_for_call)
-    {
+	switch (ul_reason_for_call)
+	{
 	case DLL_PROCESS_ATTACH: InitInstance(hModule); break;
 	case DLL_PROCESS_DETACH: ExitInstance(); break;
 	case DLL_THREAD_ATTACH:  break;
 	case DLL_THREAD_DETACH:  break;
-    }
-    return TRUE;
-}
-/*
-#include <fstream>
-std::vector<std::vector<vr::VRBoneTransform_t>> fakeBoneArray = std::vector<std::vector<vr::VRBoneTransform_t>>();
-bool createFakeFingers = false;
-void CreateFakeFingers()
-{
-	createFakeFingers = true;
-	int tBoneCount = 31;
-	std::string filename = "d:/finger_input.txt";
-	std::ifstream file_handle;
-
-	if (!file_handle.is_open())
-	{
-		int boneInputCount = -1;
-		file_handle.open(filename.c_str(), std::fstream::in | std::fstream::out | std::fstream::app);
-		if (file_handle.is_open())
-		{
-			int lineType = 0;
-			std::string line;
-			while (std::getline(file_handle, line))
-			{
-				int lineId = (lineType % 3);
-				lineType++;
-
-				std::istringstream iss(line);
-				int a;
-				float x, y, z, w;
-				if (!(iss >> a >> x >> y >> z >> w)) { break; } // error
-
-				if (lineId == 0 && a == 0)
-				{
-					fakeBoneArray.push_back(std::vector<vr::VRBoneTransform_t>());
-					boneInputCount = (int)fakeBoneArray.size() - 1;
-					fakeBoneArray[boneInputCount].resize(tBoneCount);
-				}
-
-				if (lineId == 0)
-				{
-					fakeBoneArray[boneInputCount][a].position.v[0] = x;
-					fakeBoneArray[boneInputCount][a].position.v[1] = y;
-					fakeBoneArray[boneInputCount][a].position.v[2] = z;
-					fakeBoneArray[boneInputCount][a].position.v[3] = w;
-				}
-				else if (lineId == 1)
-				{
-					fakeBoneArray[boneInputCount][a].orientation.w = x;
-					fakeBoneArray[boneInputCount][a].orientation.x = y;
-					fakeBoneArray[boneInputCount][a].orientation.y = z;
-					fakeBoneArray[boneInputCount][a].orientation.z = w;
-					
-				}
-			}
-		}
 	}
-
-	file_handle.close();
+	return TRUE;
 }
-*/
+
 void InitInstance(HANDLE hModule)
 {
 	device = nullptr;
 	rtManager = nullptr;
 	outputLog.str("");
-
-	//CreateFakeFingers();
 }
 
 void ExitInstance()
@@ -241,6 +179,28 @@ void RunOSKDisable()
 	oskTexture.Release();
 	oskLayout = nullptr;
 	oskRenderCount = -1;
+}
+
+void RunOSKUpdate()
+{
+	//----
+	// Hide keyboard if shown after a few frames
+	//----
+	if (cfg.osk && oskRenderCount <= 0 && oldOSK != showOSK)
+	{
+		oldOSK = showOSK;
+		osk.ShowHide(showOSK);
+	}
+	if (oskLayout != nullptr && oskLayout->haveLayout && oskRenderCount > 0)
+		oskRenderCount--;
+	else if (cfg.osk && oskLayout != nullptr && !oskLayout->haveLayout)
+	{
+		RunOSKDisable();
+		RunOSKEnable();
+	}
+
+	if (cfg.osk && showOSK)
+		osk.CopyOSKTexture(device->Device, device->DeviceContext, &oskTexture);
 }
 
 bool CreateBackbufferClone()
@@ -495,31 +455,18 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 			else
 				outputLog << "Image not found " << fullPath << std::endl;
 		}
-
-		device->SwapChain->BackBuffer->Texture->GetDesc(&BackBufferDesc);
-		if (cfg.vLog)
-		{
-			outputLog << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::endl;
-			forceFlush();
-		}
-
 		screenLayout.SetFromSwapchain(device->SwapChain->DXGISwapChain);
+		device->SwapChain->BackBuffer->Texture->GetDesc(&BackBufferDesc);
 		BackBufferDesc.BindFlags |= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-		BackBufferDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 
 		BackBuffer.textureDesc = BackBufferDesc;
 		BackBuffer.creationType = 2;
 		BackBuffer.pTexture = device->SwapChain->BackBuffer->Texture;
-		if (!BackBuffer.CreateRenderTargetView(device->Device))
-		{
-			outputLog << "Error creating BackBuffer RenderTargetView" << std::endl;
-			outputLog << BackBuffer.GetErrors();
-			forceFlush();
-			return false;
-		}
+		BackBuffer.pRenderTarget = device->SwapChain->BackBuffer->itemPtr->RenderTargetView;
 
 		if (cfg.vLog)
 		{
+			outputLog << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::hex << " rendTrgt:" << BackBuffer.pRenderTarget << std::endl;
 			outputLog << std::hex << "BackBuffer: " << device->SwapChain->BackBuffer << " : " << device->SwapChain->BackBuffer->Texture << std::endl;
 			outputLog << std::dec << "BackBuff: " << device->SwapChain->BackBuffer->Width << " : " << device->SwapChain->BackBuffer->Height << " : " << device->SwapChain->BackBuffer->TextureFormat << " : " << std::hex << device->SwapChain->BackBuffer->Flags << std::endl;
 			forceFlush();
@@ -527,7 +474,7 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 
 		// 0x1403dc651 | [[ffxiv_dx11.exe+20A9FD0] + 0x3DB8]
 		// sig for 48 8b 0d ?? ?? ?? ?? 8B 81 E4 3F 00 00
-		
+
 		if (useBackBuffer)
 		{
 			gameRenderTexture = new stTexture();
@@ -548,7 +495,7 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		DepthBuffer.creationType = 2;
 		DepthBuffer.pTexture = rtManager->RenderTextureArray1[depthID]->Texture;
 		DepthBuffer.pDepthStencilView = rtManager->RenderTextureArray1[depthID]->itemPtr->DepthStencilView;
-		
+
 		if (cfg.vLog)
 		{
 			outputLog << std::dec << "Depth Desc: u:" << DepthBufferDesc.Usage << " f:" << DepthBufferDesc.Format << " w:" << DepthBufferDesc.Width << " h:" << DepthBufferDesc.Height << " b:" << DepthBufferDesc.BindFlags << std::endl;
@@ -601,7 +548,7 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 			forceFlush();
 		}
 
-		if (cfg.vLog) 
+		if (cfg.vLog)
 		{
 			outputLog << "Creating BackBufferClone ..";
 			forceFlush();
@@ -663,14 +610,10 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		}
 
 		if (cfg.vLog)
+		{
 			outputLog << "Creating Viewport ..";
-		ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
-		viewport.TopLeftX = 0.5f;
-		viewport.TopLeftY = 0.5f;
-		viewport.Width = (float)screenLayout.width;
-		viewport.Height = (float)screenLayout.height;
-		viewport.MinDepth = 0.0f;
-		viewport.MaxDepth = 1.0f;
+			forceFlush();
+		}
 
 		ZeroMemory(&viewports, sizeof(D3D11_VIEWPORT) * 2);
 		viewports[0].TopLeftX = 0.5f;
@@ -686,17 +629,32 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		viewports[1].Height = (float)screenLayout.height;
 		viewports[1].MinDepth = 0.0f;
 		viewports[1].MaxDepth = 1.0f;
+
+		ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+		viewports[2].TopLeftX = 0.5f;
+		viewports[2].TopLeftY = 0.5f;
+		viewports[2].Width = (float)screenLayout.width;
+		viewports[2].Height = (float)screenLayout.height;
+		viewports[2].MinDepth = 0.0f;
+		viewports[2].MaxDepth = 1.0f;
+
 		if (cfg.vLog)
 		{
 			outputLog << ".. Done" << std::endl;
+			forceFlush();
 		}
-		
+
+		XMVECTOR eyePos = { 0, 0, 0 };
+		XMVECTOR lookAt = { 0, 0, -1 };
+		XMVECTOR viewUp = { 0, 1, 0 };
+
+		matrixSet.gameWorldMatrixFloating = XMMatrixLookAtRH(eyePos, lookAt, viewUp);
+		matrixSet.gameWorldMatrix = matrixSet.gameWorldMatrixFloating;
 
 		setActionHandlesGame(&steamInput);
 		if (cfg.osk)
 			RunOSKEnable();
 		enabled = true;
-		
 	}
 	if (cfg.vLog)
 	{
@@ -827,7 +785,7 @@ __declspec(dllexport) void SetThreadedEye(int eye)
 	threadedEyeIndexCount++;
 }
 
-__declspec(dllexport) void RenderVR()
+__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, bool dalamudMode, bool floatingUI)
 {
 	if (enabled)// && (threadedEye == 1 || cfg.mode2d == true))
 	{
@@ -837,20 +795,27 @@ __declspec(dllexport) void RenderVR()
 		backbufferSwap = (backbufferSwap + 1) % 3;
 
 		matrixSet.hmdMatrix = (XMMATRIX)(svr->GetFramePose(poseType::hmdPosition, -1)._m);
-		matrixSet.rhcMatrix = (XMMATRIX)(svr->GetFramePose(poseType::RightHand, -1)._m);
-		matrixSet.lhcMatrix = (XMMATRIX)(svr->GetFramePose(poseType::LeftHand, -1)._m);
+		matrixSet.lhcMatrix = watchMatrix;// (XMMATRIX)(svr->GetFramePose(poseType::LeftHand, -1)._m);
+		matrixSet.rhcMatrix = rayMatrix;// (XMMATRIX)(svr->GetFramePose(poseType::RightHand, -1)._m);
+
+		isFloating = floatingUI;
+		if (isFloating)
+			matrixSet.gameWorldMatrix = matrixSet.gameWorldMatrixFloating;
+		else
+			matrixSet.gameWorldMatrix = curViewMatrixWithoutHMD;
 
 		//----
 		// Sets the mouse and ray for the next frame with the current tracking data
 		//----
 		if (cfg.motioncontrol)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dMode, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dalamudMode, showOSK);
 		else if (cfg.hmdPointing)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dMode, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dalamudMode, showOSK);
 		else
-			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dMode, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dalamudMode, showOSK);
+		rend->RenderLines(LineRender);
 
-		rend->SetMouseBuffer(screenLayout.hwnd, screenLayout.width, screenLayout.height, vMouse.x, vMouse.y, dMode);
+		rend->SetMouseBuffer(screenLayout.hwnd, screenLayout.width, screenLayout.height, virtualMouse.x, virtualMouse.y, dalamudMode);
 
 		if (rend->HasErrors())
 		{
@@ -871,10 +836,11 @@ __declspec(dllexport) void RenderVR()
 			handWatchList[14].pShaderResource, handWatchList[15].pShaderResource,
 			handWatchList[16].pShaderResource, handWatchList[17].pShaderResource,
 		};
-		
+
 		for (int i = 0; i < 2; i++)
 		{
 			int curEyeView = (cfg.swapEyesUI) ? swapEyes[i] : i;
+			int vp = 2;
 
 			matrixSet.projectionMatrix = (XMMATRIX)(svr->GetFramePose(poseType::Projection, curEyeView)._m);
 			matrixSet.eyeMatrix = (cfg.mode2d) ? XMMatrixIdentity() : (XMMATRIX)(svr->GetFramePose(poseType::EyeOffset, curEyeView)._m);
@@ -883,26 +849,29 @@ __declspec(dllexport) void RenderVR()
 			{
 				rend->SetClearColor(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, isFloating);
 				rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView);
-				rend->DoRender(viewport, RenderTarget[sId + (i * 3)].pShaderResource, &matrixSet, 1, isFloating, !isFloating);
+				rend->DoRender(viewports[vp], RenderTarget[sId + (i * 3)].pShaderResource, &matrixSet, 1, isFloating, !isFloating);
 			}
 			else
 			{
 				//rend->SetClearColor(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, isFloating);
 				rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView);
+				//rend->DoRender(viewports[vp], RenderTarget[sId + (i * 3)].pShaderResource, &matrixSet, 1, isFloating, !isFloating);
 			}
-			rend->RenderLines(LineRender);
-			rend->DoRenderLine(viewport, &matrixSet, 1);
-
-			rend->DoRenderRay(viewport, &matrixSet, 1);
+			rend->DoRenderLine(viewports[vp], &matrixSet);
+			rend->DoRenderRay(viewports[vp], &matrixSet);
 			if (showUI)
 			{
-				rend->DoRender(viewport, uiRenderTarget[0].pShaderResource, &matrixSet, 0, cfg.uiDepth);
+				//----
+				// ui uses left eye only so ui elements line up properly
+				//----
+				rend->DoRender(viewports[vp], uiRenderTarget[0].pShaderResource, &matrixSet, 0, cfg.uiDepth);
 				if (!useBackBuffer)
-					rend->DoRender(viewport, dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
+					rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
 			}
-			rend->DoRenderOSK(viewport, oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth);
-			rend->DoRenderWatch(viewport, watchShaderView, &matrixSet, 0);
-
+			rend->DoRenderOSK(viewports[vp], oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth);
+			
+			//matrixSet.lhcMatrix
+			rend->DoRenderWatch(viewports[vp], watchShaderView, &matrixSet, 0);
 		}
 
 		svr->Render(BackBufferCopy[sIdL].pTexture, DepthBufferCopy[sIdL].pTexture, BackBufferCopy[sIdR].pTexture, DepthBufferCopy[sIdR].pTexture);
@@ -913,77 +882,51 @@ __declspec(dllexport) void RenderVR()
 		}
 
 		device->DeviceContext->CopyResource(dalamudBuffer.pTexture, BackBuffer.pTexture);
-
-		if (cfg.osk && oskRenderCount <= 0 && oldOSK != showOSK)
-		{
-			oldOSK = showOSK;
-			osk.ShowHide(showOSK);
-		}
-		if (oskLayout != nullptr && oskLayout->haveLayout && oskRenderCount > 0)
-			oskRenderCount--;
-		else if (cfg.osk && oskLayout != nullptr && !oskLayout->haveLayout)
-		{
-			RunOSKDisable();
-			RunOSKEnable();
-		}
-
-		if (cfg.osk && showOSK)
-			osk.CopyOSKTexture(device->Device, device->DeviceContext, &oskTexture);
+		RunOSKUpdate();
 	}
 	LineRender.clear();
 	threadedEyeIndexCount = 0;
-	//isFloating = true;
-	vMouse.x = 0;
-	vMouse.y = 0;
 }
 
-__declspec(dllexport) void RenderUI(bool enableVR, bool enableFloatingHUD, XMMATRIX curViewMatrixWithoutHMD, POINT virtualMouse, bool dalamudMode)
+__declspec(dllexport) void RenderUI()
 {
 	if (enabled)
 	{
-		if (enableVR)
-		{
-			if (enableFloatingHUD)
-			{
-				for(int i = 0; i < 4; i++)
-					matrixSet.gameWorldMatrix.r->m128_f32[i] = curViewMatrixWithoutHMD.r->m128_f32[i];
-
-				vMouse = virtualMouse;
-				dMode = dalamudMode;
-
-				isFloating = false;
-			}
-		}
-
-		//rend->DoRender(viewport, BackBuffer.pRenderTarget, gameRenderTexture->ShaderResourceView, DepthBuffer.pDepthStencilView, &matrixSet);
 		if (useBackBuffer == false)
 			device->DeviceContext->ClearRenderTargetView(BackBuffer.pRenderTarget, new float[4] { 0.f, 0.f, 0.f, 1.f });
 	}
 }
 
-__declspec(dllexport) void RenderFloatingScreen(POINT virtualMouse, bool dalamudMode)
+__declspec(dllexport) void RenderUID(unsigned long long struct_device, XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD)
 {
-	if (enabled)
+	device = (stDevice*)struct_device;
+	if (device != nullptr && device->SwapChain->BackBuffer->itemPtr->RenderTargetView != nullptr)
 	{
-		XMVECTOR eyePos = { 0, 0, 0 };
-		XMVECTOR lookAt = { 0, 0, -1 };
-		XMVECTOR viewUp = { 0, 1, 0 };
+		matrixSet.projectionMatrix = curProjection;
+		matrixSet.gameWorldMatrix = curViewMatrixWithoutHMD;
+		matrixSet.eyeMatrix = XMMatrixIdentity();
+		matrixSet.hmdMatrix = XMMatrixIdentity();
 
-		matrixSet.gameWorldMatrix = XMMatrixLookAtRH(eyePos, lookAt, viewUp);
-		matrixSet.gameWorldMatrixFloating = matrixSet.gameWorldMatrix;
-		vMouse = virtualMouse;
-		dMode = dalamudMode;
-
-		isFloating = true;
+		D3D11_VIEWPORT viewport;
+		viewport.TopLeftX = 0.5f;
+		viewport.TopLeftY = 0.5f;
+		viewport.Width = device->SwapChain->BackBuffer->Width;
+		viewport.Height = device->SwapChain->BackBuffer->Height;
+		viewport.MinDepth = 0.0f;
+		viewport.MaxDepth = 1.0f;
+		
+		rend->SetDevice(device->Device, device->DeviceContext);
+		//rend->SetClearColor(device->SwapChain->BackBuffer->itemPtr->RenderTargetView, NULL, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, true);
+		rend->SetRenderTarget(device->SwapChain->BackBuffer->itemPtr->RenderTargetView, NULL);
+		rend->RenderLines(LineRender);
+		rend->DoRenderLine(viewport, &matrixSet);
+		LineRender.clear();
 	}
-}
-
-__declspec(dllexport) void SetTexture()
-{
 }
 
 __declspec(dllexport) POINT GetBufferSize()
 {
+	svr->PreloadVR();
 	return svr->GetBufferSize();
 }
 
@@ -1221,10 +1164,15 @@ __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCall
 			// Controllers
 			//----
 			
-			if (vr::VRInput()->GetPoseActionDataForNextFrame(steamInput.game.lefthand, eOrigin, &poseActionData, sizeof(poseActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && poseActionData.bActive == true)
+			if (vr::VRInput()->GetPoseActionDataForNextFrame(steamInput.game.lefthand_tip, eOrigin, &poseActionData, sizeof(poseActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && poseActionData.bActive == true)
 				svr->SetActionPose(poseActionData.pose.mDeviceToAbsoluteTracking, poseType::LeftHand);
-			if (vr::VRInput()->GetPoseActionDataForNextFrame(steamInput.game.righthand, eOrigin, &poseActionData, sizeof(poseActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && poseActionData.bActive == true)
+			if (vr::VRInput()->GetPoseActionDataForNextFrame(steamInput.game.righthand_tip, eOrigin, &poseActionData, sizeof(poseActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && poseActionData.bActive == true)
 				svr->SetActionPose(poseActionData.pose.mDeviceToAbsoluteTracking, poseType::RightHand);
+			
+			if (vr::VRInput()->GetPoseActionDataForNextFrame(steamInput.game.lefthand_palm, eOrigin, &poseActionData, sizeof(poseActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && poseActionData.bActive == true)
+				svr->SetActionPose(poseActionData.pose.mDeviceToAbsoluteTracking, poseType::LeftHandPalm);
+			if (vr::VRInput()->GetPoseActionDataForNextFrame(steamInput.game.righthand_palm, eOrigin, &poseActionData, sizeof(poseActionData), vr::k_ulInvalidInputValueHandle) == vr::VRInputError_None && poseActionData.bActive == true)
+				svr->SetActionPose(poseActionData.pose.mDeviceToAbsoluteTracking, poseType::RightHandPalm);
 
 			if (vr::VRInput()->GetSkeletalActionData(steamInput.game.lefthand_anim, &skeletalActionData, sizeof(skeletalActionData)) == vr::VRInputError_None && skeletalActionData.bActive == true)
 			{
@@ -1239,26 +1187,9 @@ __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCall
 				uint32_t boneCount = 0;
 				vr::VRInput()->GetBoneCount(steamInput.game.righthand_anim, &boneCount);
 				vr::VRBoneTransform_t* boneArray = new vr::VRBoneTransform_t[boneCount];
-				vr::VRInput()->GetSkeletalBoneData(steamInput.game.righthand_anim, vr::VRSkeletalTransformSpace_Parent, vr::VRSkeletalMotionRange_WithoutController, boneArray, boneCount);
+				vr::VRInput()->GetSkeletalBoneData(steamInput.game.righthand_anim, vr::VRSkeletalTransformSpace_Model, vr::VRSkeletalMotionRange_WithoutController, boneArray, boneCount);
 				svr->SetSkeletalPose(boneArray, boneCount, poseType::RightHand);
 			}
-			/*
-			if (createFakeFingers)
-			{
-				uint32_t boneCount = 31;
-				vr::VRBoneTransform_t* boneArray = new vr::VRBoneTransform_t[boneCount];
-				for (uint32_t i = 0; i < boneCount; i++)
-					boneArray[i] = fakeBoneArray[GlobalBoneCounter][i];
-				GlobalBoneCounter++;
-				if (GlobalBoneCounter > GlobalBoneCounterMax)
-					GlobalBoneCounter = 0;
-
-				svr->SetSkeletalPose(boneArray, boneCount, poseType::LeftHand);
-				svr->SetSkeletalPose(boneArray, boneCount, poseType::RightHand);
-			}
-			*/
-			
-			
 
 			//----
 			// Movement

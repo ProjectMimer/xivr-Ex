@@ -10,8 +10,10 @@ struct inputActionGame
 
 	vr::VRActionHandle_t movement;
 	vr::VRActionHandle_t rotation;
-	vr::VRActionHandle_t lefthand;
-	vr::VRActionHandle_t righthand;
+	vr::VRActionHandle_t lefthand_tip;
+	vr::VRActionHandle_t righthand_tip;
+	vr::VRActionHandle_t lefthand_palm;
+	vr::VRActionHandle_t righthand_palm;
 	vr::VRActionHandle_t lefthand_anim;
 	vr::VRActionHandle_t righthand_anim;
 	vr::VRActionHandle_t leftclick;
@@ -75,8 +77,10 @@ enum buttonLayout
 {
 	movement,
 	rotation,
-	leftHandPose,
-	rightHandPose,
+	leftHandTipPose,
+	rightHandTipPose,
+	leftHandPalmPose,
+	rightHandPalmPose,
 	leftHandAnim,
 	rightHandAnim,
 	leftClick,

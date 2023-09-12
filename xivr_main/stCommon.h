@@ -14,7 +14,9 @@ enum poseType
 	EyeOffset = 5,
 	hmdPosition = 10,
 	LeftHand = 20,
+	LeftHandPalm = 21,
 	RightHand = 30,
+	RightHandPalm = 31,
 };
 
 struct stScreenLayout
@@ -54,8 +56,8 @@ struct Quat4
 
 struct BoneData
 {
-	Vector4 pos;
-	Quat4 quat;
+	Vector4 Translation;
+	Quat4 Rotation;
 };
 
 struct fingerHandLayout

@@ -42,9 +42,6 @@
     <ClInclude Include="stButtonList.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stsdkTypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="SteamVRInput.h">
       <Filter>Header Files</Filter>
     </ClInclude>

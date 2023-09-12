@@ -11,19 +11,28 @@ using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Interface;
 using Dalamud.Game.ClientState.Conditions;
-using xivr.Structures;
-using static xivr.Configuration;
 using Dalamud.Game.Command;
 using Dalamud.Game.ClientState;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using Dalamud.IoC;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.Gui;
+using Dalamud.Hooking;
+using Dalamud.Utility.Signatures;
+using xivr.Structures;
+using static xivr.Configuration;
+using Dalamud.Game.ClientState.Party;
 
 namespace xivr
 {
-    public class xivr_Ex : IDalamudPlugin
+    public unsafe class xivr_Ex : IDalamudPlugin
     {
+        //----
+        // Required here to load openvr_api, if its not then openvr_api isnt loaded and
+        // xivr_main isnt loaded either
+        //----
+        [DllImport("openvr_api.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool VR_IsHmdPresent();
+
         [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; }
         [PluginService] public static Framework? Framework { get; private set; }
         [PluginService] public static ClientState? ClientState { get; private set; }
@@ -34,6 +43,7 @@ namespace xivr
         [PluginService] public static GameGui? GameGui { get; private set; }
         [PluginService] public static CommandManager? CommandManager { get; private set; }
         [PluginService] public static ObjectTable? ObjectTable { get; private set; }
+        [PluginService] public static PartyList? PartyList { get; private set; }
         [PluginService] public static TargetManager? TargetManager { get; private set; }
 
         public static xivr_Ex Plugin { get; private set; }
@@ -47,6 +57,8 @@ namespace xivr
         
 
         private bool pluginReady = false;
+        private bool haveLoaded = false;
+        private bool haveDrawn = false;
         private bool isEnabled = false;
         private bool hasResized = false;
         private bool hasMoved = false;
@@ -66,64 +78,109 @@ namespace xivr
                 cfg.Initialize(PluginInterface);
                 cfg.CheckVersion(UpdateValue);
 
+                bool haveHMD = false;
+                if (VR_IsHmdPresent())
+                    haveHMD = true;
+
+                IntPtr hModule = Imports.GetModuleHandle("dxgi.dll");
+                if (hModule != IntPtr.Zero)
+                {
+                    factoryAddress = Imports.GetProcAddress(hModule, "CreateDXGIFactory");
+                    factory1Address = Imports.GetProcAddress(hModule, "CreateDXGIFactory1");
+
+                    SignatureHelper.Initialise(this);
+                    CreateDXGIFactoryStatus(true);
+                }
+                CheckLoadRequiredStateInJSON();
+
                 Framework!.Update += Update;
+                Framework!.Update += InitializeCheck;
                 ClientState!.Login += OnLogin;
                 ClientState!.Logout += OnLogout;
                 PluginInterface!.UiBuilder.Draw += Draw;
                 PluginInterface!.UiBuilder.OpenConfigUi += ToggleConfig;
-
-                try
-                {
-                    Assembly myAssembly = Assembly.GetExecutingAssembly();
-                    Stream imgStream = myAssembly.GetManifestResourceStream("xivr-Ex.xivr-Ex.png");
-                    if (imgStream != null)
-                    {
-                        var imgBytes = new byte[imgStream.Length];
-                        imgStream.Read(imgBytes, 0, imgBytes.Length);
-                        ImGuiScene.TextureWrap image = PluginInterface!.UiBuilder.LoadImage(imgBytes);
-                        xivrMenuEntry = TitleScreenMenu!.AddEntry("xivr-Ex", image, ToggleConfig);
-                    }
-
-                    cfg.data.isEnabled = false;
-
-                    try
-                    {
-                        Process[] pname = Process.GetProcessesByName("vrserver");
-                        PluginLog.LogError($"SteamVR Active: {((pname.Length > 0) ? true : false)}");
-                        if (pname.Length > 0 && cfg.data.isAutoEnabled)
-                        {
-                            cfg.data.isEnabled = true;
-                        }
-
-                        try
-                        {
-
-                            CommandManager!.AddHandler(commandName, new CommandInfo(CheckCommands)
-                            {
-                                HelpMessage = "Opens the VR settings menu."
-                            });
-
-
-
-                            Marshal.PrelinkAll(typeof(xivr_hooks));
-                            counter = 50;
-                            Imports.UpdateConfiguration(cfg.data);
-                            pluginReady = xivr_hooks.Initialize();
-
-                            ClientLanguage curLng = ClientState.ClientLanguage;
-                            if (curLng == ClientLanguage.Japanese)
-                                cfg.data.languageType = LanguageTypes.jp;
-                            else
-                                cfg.data.languageType = LanguageTypes.en;
-                        }
-                        catch (Exception e) { PluginLog.LogError($"Failed loading vr dll\n{e}"); }
-                    }
-                    catch (Exception e) { PluginLog.LogError($"Failed initalizing vr\n{e}"); }
-                }
-                catch (Exception e) { PluginLog.LogError($"Failed adding menu item\n{e}"); }
+                
+                pluginReady = true;
             }
             catch (Exception e) { PluginLog.LogError($"Failed loading plugin\n{e}"); }
         }
+
+        private void CheckLoadRequiredStateInJSON()
+        {
+            string pluginJSON = Path.Combine(PluginInterface!.AssemblyLocation.DirectoryName, "xivr-Ex.json");
+            //PluginLog.Log($"{pluginJSON}");
+            string jsonData = File.ReadAllText(pluginJSON);
+            string[] parts = jsonData.Split("\"LoadRequiredState\":");
+            if(parts.Length > 1)
+            {
+                string[] subparts = parts[1].Split(",");
+                if(subparts.Length > 1)
+                {
+                    if (int.Parse(subparts[0]) != 2)
+                    {
+                        subparts[0] = " 2";
+                        parts[1] = string.Join(",", subparts);
+                        jsonData = string.Join("\"LoadRequiredState\":", parts);
+                        File.WriteAllText(pluginJSON, jsonData);
+                    }
+                }
+            }
+        }
+
+        private unsafe bool Initialize()
+        {
+            try
+            {
+                Assembly myAssembly = Assembly.GetExecutingAssembly();
+                Stream imgStream = myAssembly.GetManifestResourceStream("xivr-Ex.xivr-Ex.png");
+                if (imgStream != null)
+                {
+                    var imgBytes = new byte[imgStream.Length];
+                    imgStream.Read(imgBytes, 0, imgBytes.Length);
+                    ImGuiScene.TextureWrap image = PluginInterface!.UiBuilder.LoadImage(imgBytes);
+                    xivrMenuEntry = TitleScreenMenu!.AddEntry("xivr-Ex", image, ToggleConfig);
+                }
+
+                cfg!.data.isEnabled = false;
+                cfg!.data.asymmetricProjection = true;
+
+                try
+                {
+                    Process[] pname = Process.GetProcessesByName("vrserver");
+                    PluginLog.LogError($"SteamVR Active: {((pname.Length > 0) ? true : false)}");
+                    if (pname.Length > 0 && cfg.data.isAutoEnabled)
+                    {
+                        cfg!.data.isEnabled = true;
+                    }
+
+                    try
+                    {
+                        CommandManager!.AddHandler(commandName, new CommandInfo(CheckCommands)
+                        {
+                            HelpMessage = "Opens the VR settings menu."
+                        });
+
+                        counter = 50;
+                        Imports.UpdateConfiguration(cfg.data);
+                        
+                        ClientLanguage curLng = ClientState!.ClientLanguage;
+                        if (curLng == ClientLanguage.Japanese)
+                            cfg!.data.languageType = LanguageTypes.jp;
+                        else
+                            cfg!.data.languageType = LanguageTypes.en;
+
+                        Marshal.PrelinkAll(typeof(xivr_hooks));
+                        return xivr_hooks.Initialize();
+                    }
+                    catch (Exception e) { PluginLog.LogError($"Failed loading vr dll\n{e}"); }
+                }
+                catch (Exception e) { PluginLog.LogError($"Failed initalizing vr\n{e}"); }
+            }
+            catch (Exception e) { PluginLog.LogError($"Failed adding menu item\n{e}"); }
+            return false;
+        }
+
+
 
         [AttributeUsage(AttributeTargets.Method)]
         public class CommandAttribute : Attribute
@@ -314,9 +371,19 @@ namespace xivr
             }
         }
 
+        private void InitializeCheck(Framework framework)
+        {
+            if (pluginReady && haveDrawn)
+            {
+                haveLoaded = Initialize();
+                if (haveLoaded)
+                    Framework!.Update -= InitializeCheck;
+            }
+        }
+
         private void Update(Framework framework)
         {
-            if (pluginReady)
+            if (pluginReady && haveDrawn && haveLoaded)
             {
                 if (doUpdate == true)
                 {
@@ -338,13 +405,22 @@ namespace xivr
                     //----
                     if (counter == 50)
                     {
+                        if (xivr_hooks.enableVR)
+                        {
+                            Point hmdSize = Imports.GetBufferSize();
+                            cfg!.data.hmdWidth = hmdSize.X;
+                            cfg!.data.hmdHeight = hmdSize.Y;
+                            cfg.Save();
+                            PluginLog.Log($"Saving HMD Size {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight}");
+                        }
+
                         origWindowSize = xivr_hooks.GetWindowSize();
                         if(cfg!.data.vLog)
                             PluginLog.Log($"Saving ScreenSize {origWindowSize.X}x{origWindowSize.Y}");
 
                         if (cfg!.data.autoResize && cfg!.data.hmdWidth != 0 && cfg!.data.hmdHeight != 0)
                         {
-                            xivr_hooks.WindowResize(cfg.data.hmdWidth, cfg!.data.hmdHeight);
+                            xivr_hooks.WindowResize(cfg!.data.hmdWidth, cfg!.data.hmdHeight);
                             hasResized = true;
                             PluginLog.Log($"Resizing window to: {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight} from {origWindowSize.X}x{origWindowSize.Y}");
                         }
@@ -360,11 +436,6 @@ namespace xivr
                     else if (counter == 25)
                     {
                         xivr_hooks.Start();
-                        Point hmdSize = Imports.GetBufferSize();
-                        cfg!.data.hmdWidth = hmdSize.X;
-                        cfg!.data.hmdHeight = hmdSize.Y;
-                        cfg.Save();
-                        PluginLog.Log($"Saving HMD Size {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight}");
                         counter--;
                     }
                     else if (counter == 0)
@@ -423,6 +494,7 @@ namespace xivr
         {
             if (pluginReady)
             {
+                haveDrawn = true;
                 PluginUI.Draw(Language.rawLngData[cfg!.data.languageType]);
             }
         }
@@ -432,6 +504,18 @@ namespace xivr
             firstRun = false;
             if (pluginReady)
             {
+                CommandManager!.RemoveHandler(commandName);
+                TitleScreenMenu!.RemoveEntry(xivrMenuEntry!);
+                Framework!.Update -= Update;
+                Framework!.Update -= InitializeCheck;
+                ClientState!.Login -= OnLogin;
+                ClientState!.Logout -= OnLogout;
+                PluginInterface!.UiBuilder.Draw -= Draw;
+                PluginInterface!.UiBuilder.OpenConfigUi -= ToggleConfig;
+
+                haveLoaded = false;
+                haveDrawn = false;
+
                 xivr_hooks.Stop();
                 xivr_hooks.Dispose();
                 if (hasResized == true)
@@ -447,15 +531,96 @@ namespace xivr
                     PluginLog.Log($"Resetting window position");
                     hasMoved = false;
                 }
-            }
 
-            CommandManager!.RemoveHandler(commandName);
-            TitleScreenMenu!.RemoveEntry(xivrMenuEntry!);
-            Framework!.Update -= Update;
-            ClientState!.Login -= OnLogin;
-            ClientState!.Logout -= OnLogout;
-            PluginInterface!.UiBuilder.Draw -= Draw;
-            PluginInterface!.UiBuilder.OpenConfigUi -= ToggleConfig;
+                CreateDXGIFactoryStatus(false);
+
+                pluginReady = false;
+            }
+        }
+
+
+        //----
+        // Preload
+        //----
+
+        private IntPtr factoryAddress = 0;
+        private IntPtr factory1Address = 0;
+
+        private GUID IID_IDXGIFactory = new GUID(0x7b7166ec, 0x21c7, 0x44ae, 0xb2, 0x1a, 0xc9, 0xae, 0x32, 0x1a, 0xe3, 0x69);
+        private GUID IID_IDXGIFactory1 = new GUID(0x770aae78, 0xf26f, 0x4dba, 0xa8, 0x29, 0x25, 0x3c, 0x83, 0xd1, 0xb3, 0x87);
+        private GUID IID_IDXGIFactory2 = new GUID(0x50c83a1c, 0xe072, 0x4c48, 0x87, 0xb0, 0x36, 0x30, 0xfa, 0x36, 0xa6, 0xd0);
+        private struct GUID
+        {
+            uint v1;
+            ushort v2;
+            ushort v3;
+            byte v4;
+            byte v5;
+            byte v6;
+            byte v7;
+            byte v8;
+            byte v9;
+            byte vA;
+            byte vB;
+
+            public GUID(uint n1, ushort n2, ushort n3, byte n4, byte n5, byte n6, byte n7, byte n8, byte n9, byte nA, byte nB)
+            {
+                v1 = n1;
+                v2 = n2;
+                v3 = n3;
+                v4 = n4;
+                v5 = n5;
+                v6 = n6;
+                v7 = n7;
+                v8 = n8;
+                v9 = n9;
+                vA = nA;
+                vB = nB;
+            }
+        }
+
+        private static class PreloadSignatures
+        {
+            internal const string CreateDXGIFactory = "E8 ?? ?? ?? ?? 85 C0 0F 88 ?? ?? ?? ?? 48 8B 8F 28 02 00 00";
+        }
+
+        //----
+        // CreateDXGIFactory
+        //----
+        private delegate UInt64 CreateDXGIFactoryDg(GUID* a, UInt64 b);
+        [Signature(PreloadSignatures.CreateDXGIFactory, DetourName = nameof(CreateDXGIFactoryFn))]
+        private Hook<CreateDXGIFactoryDg>? CreateDXGIFactoryHook = null;
+
+        private delegate UInt64 CreateDXGIFactory1Dg(GUID* a, UInt64 b);
+        private Hook<CreateDXGIFactory1Dg>? CreateDXGIFactory1Hook = null;
+
+        private void CreateDXGIFactoryStatus(bool status)
+        {
+            if (status == true)
+            {
+                CreateDXGIFactoryHook?.Enable();
+                CreateDXGIFactory1Hook = Hook<CreateDXGIFactory1Dg>.FromAddress(factory1Address, CreateDXGIFactory1Fn);
+            }
+            else
+            {
+                CreateDXGIFactory1Hook?.Disable();
+                CreateDXGIFactoryHook?.Disable();
+            }
+        }
+
+        private unsafe UInt64 CreateDXGIFactoryFn(GUID* a, UInt64 b)
+        {
+            UInt64 retVal = 0;
+            fixed (GUID* ptrGUI = &IID_IDXGIFactory1)
+                retVal = CreateDXGIFactory1Hook!.Original(ptrGUI, b);
+            PluginLog.Log($"CreateDXGIFactory Redirected to CreateDXGIFactory1 : {retVal}");
+            return retVal;
+            //return CreateDXGIFactoryHook!.Original(a, b);
+        }
+
+        private UInt64 CreateDXGIFactory1Fn(GUID* a, UInt64 b)
+        {
+            return CreateDXGIFactory1Hook!.Original(a, b);
         }
     }
 }

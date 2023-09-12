@@ -27,45 +27,72 @@ namespace xivr.Structures
         public Notifier Notifier;
 
         [FieldOffset(32)]
-        [FixedSizeArray<Pointer<Texture>>(73)]
-        public unsafe fixed byte RenderTargetArray[73*8];
+        [FixedSizeArray<Pointer<Texture>>(65)]
+        public unsafe fixed byte RenderTargetArray[520];
 
         [FieldOffset(96)]
         public unsafe Texture* MainDepthBuffer;
 
-        [FieldOffset(592)]
-        public unsafe Texture* GammaRenderTarget;
+        [FieldOffset(480)]
+        public unsafe Texture* OffscreenRenderTarget_1;
 
-        [FieldOffset(624)]
+        [FieldOffset(488)]
+        public unsafe Texture* OffscreenRenderTarget_2;
+
+        [FieldOffset(496)]
+        public unsafe Texture* OffscreenRenderTarget_3;
+
+        [FieldOffset(504)]
+        public unsafe Texture* OffscreenRenderTarget_4;
+
+        [FieldOffset(512)]
+        public unsafe Texture* OffscreenGBuffer;
+
+        [FieldOffset(520)]
+        public unsafe Texture* OffscreenDepthStencil;
+
+        [FieldOffset(528)]
+        public unsafe Texture* OffscreenRenderTarget_Unk1;
+
+        [FieldOffset(536)]
+        public unsafe Texture* OffscreenRenderTarget_Unk2;
+
+        [FieldOffset(544)]
+        public unsafe Texture* OffscreenRenderTarget_Unk3;
+
+        [FieldOffset(584)]
+        public unsafe Texture* MainRenderTarget;
+
+        [FieldOffset(616)]
         public uint Resolution_Width;
 
-        [FieldOffset(628)]
+        [FieldOffset(620)]
         public uint Resolution_Height;
 
-        [FieldOffset(632)]
+        [FieldOffset(624)]
         public uint ShadowMap_Width;
 
-        [FieldOffset(636)]
+        [FieldOffset(628)]
         public uint ShadowMap_Height;
 
-        [FieldOffset(640)]
+        [FieldOffset(632)]
         public uint NearShadowMap_Width;
 
-        [FieldOffset(644)]
+        [FieldOffset(636)]
         public uint NearShadowMap_Height;
 
-        [FieldOffset(648)]
+        [FieldOffset(640)]
         public uint FarShadowMap_Width;
 
-        [FieldOffset(652)]
+        [FieldOffset(644)]
         public uint FarShadowMap_Height;
 
-        [FieldOffset(656)]
+        [FieldOffset(648)]
         public bool UnkBool_1;
 
-        [FieldOffset(680)]
+        [FieldOffset(672)]
         [FixedSizeArray<Pointer<Texture>>(49)]
-        public unsafe fixed byte RenderTargetArray2[49*8];
+        public unsafe fixed byte RenderTargetArray2[392];
 
         public unsafe Span<Pointer<Texture>> RenderTargetArraySpan => new Span<Pointer<Texture>>(Unsafe.AsPointer(ref RenderTargetArray[0]), 65);
 

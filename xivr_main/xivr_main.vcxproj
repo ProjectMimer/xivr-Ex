@@ -180,7 +180,6 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configu
     <ClInclude Include="SteamVRInput.h" />
     <ClInclude Include="RenderObject.h" />
     <ClInclude Include="stMonitorLayout.h" />
-    <ClInclude Include="stsdkTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BasicRenderer.cpp" />

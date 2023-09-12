@@ -41,6 +41,13 @@ namespace xivr
         [DllImport("kernel32.dll", EntryPoint = "RtlZeroMemory")]
         public unsafe static extern bool ZeroMemory(byte* destination, int length);
 
+        [DllImport("kernel32.dll", EntryPoint = "GetModuleHandle")]
+        public static extern IntPtr GetModuleHandle([MarshalAs(UnmanagedType.LPStr)] string lpModuleName);
+
+        [DllImport("kernel32.dll", EntryPoint = "GetProcAddress")]
+        public static extern IntPtr GetProcAddress(IntPtr hModule, [MarshalAs(UnmanagedType.LPStr)] string lpProcName);
+
+
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateConfiguration(Configuration.cfgData config);
@@ -79,16 +86,13 @@ namespace xivr
         public static extern void SetThreadedEye(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderVR();
+        public static extern void RenderVR(Matrix4x4 curProjection, Matrix4x4 curViewMatrixWithoutHMD, Matrix4x4 rayMatrix, Matrix4x4 watchMatrix, Point virtualMouse, bool dalamudMode, bool floatingUI);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderUI(bool enableVR, bool enableFloatingHUD, Matrix4x4 curViewMatrixWithoutHMD, Point virtualMouse, bool dalamudMode);
+        public static extern void RenderUI();
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderFloatingScreen(Point virtualMouse, bool dalamudMode);
-
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void SetTexture();
+        public static extern void RenderUID(IntPtr Device, Matrix4x4 curProjection, Matrix4x4 curViewMatrixWithoutHMD);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern Point GetBufferSize();

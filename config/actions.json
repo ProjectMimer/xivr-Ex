@@ -17,11 +17,19 @@
         "type" : "vector2"
       },
       {
-        "name" : "/actions/game/in/lefthand",
+        "name" : "/actions/game/in/lefthand_tip",
         "type" : "pose"
       },
       {
-        "name" : "/actions/game/in/righthand",
+        "name" : "/actions/game/in/righthand_tip",
+        "type" : "pose"
+      },
+      {
+        "name" : "/actions/game/in/lefthand_palm",
+        "type" : "pose"
+      },
+      {
+        "name" : "/actions/game/in/righthand_palm",
         "type" : "pose"
       },
       {
@@ -214,8 +222,10 @@
       "/actions/game" : "InGame",
       "/actions/game/in/movement" : "Movement",
       "/actions/game/in/rotation" : "Rotate",
-      "/actions/game/in/lefthand" : "Left Hand",
-      "/actions/game/in/righthand" : "Right Hand",
+      "/actions/game/in/lefthand_tip" : "Left Hand Pose",
+      "/actions/game/in/righthand_tip" : "Right Hand Pose",
+      "/actions/game/in/lefthand_palm" : "Left Hand Palm",
+      "/actions/game/in/righthand_palm" : "Right Hand Palm",
       "/actions/game/in/leftclick" : "Left Click",
       "/actions/game/in/rightclick" : "Right Click",
 

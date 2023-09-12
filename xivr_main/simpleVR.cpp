@@ -29,13 +29,51 @@ void simpleVR::InitalizeVR()
 	memcpy(&eyeViewMatrix[0], identMatrix._m, sizeof(uMatrix));
 	memcpy(&eyeViewMatrix[1], identMatrix._m, sizeof(uMatrix));
 	memcpy(&hmdMatrix, identMatrix._m, sizeof(uMatrix));
-	memcpy(&controllerLeftMatrix, identMatrix._m, sizeof(uMatrix));
-	memcpy(&controllerRightMatrix, identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[0], identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[1], identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[2], identMatrix._m, sizeof(uMatrix));
+	memcpy(&controllerMatrix[3], identMatrix._m, sizeof(uMatrix));
 
 	layoutFinger[0] = fingerHandLayout();
 	layoutFinger[1] = fingerHandLayout();
 }
 
+bool simpleVR::PreloadVR()
+{
+	if (!vr::VR_IsHmdPresent())
+	{
+		//InitalizeVR();
+		_isConnected = false;
+		return _isConnected;
+	}
+
+	vr::EVRInitError eError = vr::VRInitError_None;
+	vr::IVRSystem* localVRSession = vr::VR_Init(&eError, vr::VRApplication_Scene);
+
+	//----
+	// Gets the buffer and resolution sizes
+	//----
+	int32_t rX = 0;
+	int32_t rY = 0;
+	uint32_t rWidth = 0;
+	uint32_t rHeight = 0;
+
+	vr::IVRExtendedDisplay* d = vr::VRExtendedDisplay();
+	d->GetWindowBounds(&rX, &rY, &rWidth, &rHeight);
+	resolution.x = rWidth;
+	resolution.y = rHeight;
+
+	localVRSession->GetRecommendedRenderTargetSize(&rWidth, &rHeight);
+	bufferSize.x = rWidth;
+	bufferSize.y = rHeight;
+
+	if (cfg->vLog)
+	{
+		logError << "Getting Buffers" << std::endl;
+	}
+	vr::VR_Shutdown();
+	localVRSession = nullptr;
+}
 
 bool simpleVR::StartVR()
 {
@@ -58,7 +96,7 @@ bool simpleVR::StartVR()
 		{
 			logError << "Creating Projection" << std::endl;
 		}
-		depthRange.v[0] = 0.1f;
+		depthRange.v[0] = 0.05f;
 		depthRange.v[1] = 10000.0f;
 
 		textureBounds[0] = vr::VRTextureBounds_t();
@@ -193,27 +231,7 @@ bool simpleVR::StartVR()
 		memcpy(&eyeViewMatrix[0], &eyeViewMatrixRaw[0], sizeof(uMatrix));
 		memcpy(&eyeViewMatrix[1], &eyeViewMatrixRaw[1], sizeof(uMatrix));
 
-		//----
-		// Gets the buffer and resolution sizes
-		//----
-		int32_t rX = 0;
-		int32_t rY = 0;
-		uint32_t rWidth = 0;
-		uint32_t rHeight = 0;
-
-		vr::IVRExtendedDisplay* d = vr::VRExtendedDisplay();
-		d->GetWindowBounds(&rX, &rY, &rWidth, &rHeight);
-		resolution.x = rWidth;
-		resolution.y = rHeight;
-
-		openVRSession->GetRecommendedRenderTargetSize(&rWidth, &rHeight);
-		bufferSize.x = rWidth;
-		bufferSize.y = rHeight;
-
-		if (cfg->vLog)
-		{
-			logError << "Resizing Buffers" << std::endl;
-		}
+		
 
 		if (cfg->asymmetricProjection)
 		{
@@ -383,10 +401,13 @@ void simpleVR::SetActionPose(vr::HmdMatrix34_t matPose, poseType poseType)
 		matPose.m[0][3], matPose.m[1][3], matPose.m[2][3], 1.0f
 	};
 	if (poseType == poseType::LeftHand)
-		memcpy(controllerLeftMatrix.matrix, poseMatrix, sizeof(float) * 4 * 4);
+		memcpy(controllerMatrix[0].matrix, poseMatrix, sizeof(float) * 4 * 4);
+	else if (poseType == poseType::LeftHandPalm)
+		memcpy(controllerMatrix[1].matrix, poseMatrix, sizeof(float) * 4 * 4);
 	else if (poseType == poseType::RightHand)
-		memcpy(controllerRightMatrix.matrix, poseMatrix, sizeof(float) * 4 * 4);
-
+		memcpy(controllerMatrix[2].matrix, poseMatrix, sizeof(float) * 4 * 4);
+	else if (poseType == poseType::RightHandPalm)
+		memcpy(controllerMatrix[3].matrix, poseMatrix, sizeof(float) * 4 * 4);
 }
 
 void simpleVR::SetSkeletalPose(vr::VRBoneTransform_t* boneArray, int boneCount, poseType poseType)
@@ -411,10 +432,16 @@ uMatrix simpleVR::GetFramePose(poseType poseType, int eye)
 		return hmdMatrix;
 		break;
 	case poseType::LeftHand:
-		return controllerLeftMatrix;
+		return controllerMatrix[0];
+		break;
+	case poseType::LeftHandPalm:
+		return controllerMatrix[1];
 		break;
 	case poseType::RightHand:
-		return controllerRightMatrix;
+		return controllerMatrix[2];
+		break;
+	case poseType::RightHandPalm:
+		return controllerMatrix[3];
 		break;
 	default:
 		return identMatrix;

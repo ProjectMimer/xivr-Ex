@@ -18,23 +18,26 @@ bool RenderObject::SetVertexBuffer(std::vector<float> vertices, int itmStride, D
 	int byteWidth = vertexCount * byteStride;
 
 	vertexSet = false;
-	D3D11_BUFFER_DESC vertexBufferDesc = D3D11_BUFFER_DESC();
-	vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	vertexBufferDesc.ByteWidth = byteWidth;
-	vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	vertexBufferDesc.MiscFlags = 0;
-	vertexBufferDesc.StructureByteStride = 0;
+	if (vertices.size() > 0)
+	{
+		D3D11_BUFFER_DESC vertexBufferDesc = D3D11_BUFFER_DESC();
+		vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		vertexBufferDesc.ByteWidth = byteWidth;
+		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+		vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		vertexBufferDesc.MiscFlags = 0;
+		vertexBufferDesc.StructureByteStride = 0;
 
-	D3D11_SUBRESOURCE_DATA initData = D3D11_SUBRESOURCE_DATA();
-	initData.pSysMem = &vertices[0];
+		D3D11_SUBRESOURCE_DATA initData = D3D11_SUBRESOURCE_DATA();
+		initData.pSysMem = &vertices[0];
 
-	HRESULT result = dev->CreateBuffer(&vertexBufferDesc, &initData, &vertexBuffer);
-	if (FAILED(result)) {
-		return false;
+		HRESULT result = dev->CreateBuffer(&vertexBufferDesc, &initData, &vertexBuffer);
+		if (FAILED(result)) {
+			return false;
+		}
+
+		vertexSet = true;
 	}
-
-	vertexSet = true;
 	return vertexSet;
 }
 
@@ -50,23 +53,26 @@ bool RenderObject::SetIndexBuffer(std::vector<short> indices, D3D11_USAGE usage)
 	int byteWidth = indexCount * sizeof(short);
 	
 	indexSet = false;
-	D3D11_BUFFER_DESC indexBufferDesc = D3D11_BUFFER_DESC();
-	indexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	indexBufferDesc.ByteWidth = byteWidth;
-	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	indexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	indexBufferDesc.MiscFlags = 0;
-	indexBufferDesc.StructureByteStride = 0;
+	if (indices.size() > 0)
+	{
+		D3D11_BUFFER_DESC indexBufferDesc = D3D11_BUFFER_DESC();
+		indexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+		indexBufferDesc.ByteWidth = byteWidth;
+		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+		indexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		indexBufferDesc.MiscFlags = 0;
+		indexBufferDesc.StructureByteStride = 0;
 
-	D3D11_SUBRESOURCE_DATA initData = D3D11_SUBRESOURCE_DATA();
-	initData.pSysMem = &indices[0];
+		D3D11_SUBRESOURCE_DATA initData = D3D11_SUBRESOURCE_DATA();
+		initData.pSysMem = &indices[0];
 
-	HRESULT result = dev->CreateBuffer(&indexBufferDesc, &initData, &indexBuffer);
-	if (FAILED(result)) {
-		return false;
+		HRESULT result = dev->CreateBuffer(&indexBufferDesc, &initData, &indexBuffer);
+		if (FAILED(result)) {
+			return false;
+		}
+
+		indexSet = true;
 	}
-
-	indexSet = true;
 	return indexSet;
 }
 

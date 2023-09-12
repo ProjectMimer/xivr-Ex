@@ -26,8 +26,7 @@ class simpleVR
 	uMatrix eyeViewMatrix[2];
 	uMatrix identMatrix;
 	uMatrix hmdMatrix;
-	uMatrix controllerLeftMatrix;
-	uMatrix controllerRightMatrix;
+	uMatrix controllerMatrix[4];
 	uMatrix genericMatrix[3];
 	int gTrackCount;
 	float currentIPD;
@@ -45,6 +44,7 @@ public:
 	simpleVR(stConfiguration* config);
 	~simpleVR();
 	
+	bool PreloadVR();
 	bool StartVR();
 	bool StopVR();
 	bool isEnabled();
