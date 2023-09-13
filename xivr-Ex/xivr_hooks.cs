@@ -930,11 +930,17 @@ namespace xivr
             dx11DeviceInstance->NewHeight = (uint)height;
             dx11DeviceInstance->RequestResolutionChange = 1;
 
+            if (xivr_Ex.cfg!.data.vLog)
+                PluginLog.Log($"Setting DX Dev Width/Height");
+
             //----
             // Resizes the client window to match the internal buffers
             //----
             ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
-            Imports.ResizeWindow((IntPtr)screenSettings->hWnd, width, height);
+            if (xivr_Ex.cfg!.data.vLog)
+                PluginLog.Log($"ScreenSettings Offset {(UInt64)screenSettings:x}");
+            if(screenSettings != null && screenSettings->hWnd != 0)
+                Imports.ResizeWindow((IntPtr)screenSettings->hWnd, width, height);
         }
 
         public void WindowMove(bool reset)
@@ -969,8 +975,10 @@ namespace xivr
                         Matrix4x4.Invert(Imports.GetFramePose(poseType.EyeOffset, 1), out eyeOffsetMatrix[1]);
                     }
                 }
+                hmdWorldScale = Matrix4x4.Identity;
+                if (gameMode.Current == CameraModes.FirstPerson)
+                    hmdWorldScale = Matrix4x4.CreateScale((armLength / 0.5f) * (xivr_Ex.cfg!.data.armMultiplier / 100.0f));
 
-                hmdWorldScale = Matrix4x4.CreateScale(armLength / 0.5f);
                 gameProjectionMatrix[0] = Imports.GetFramePose(poseType.Projection, 0);
                 gameProjectionMatrix[1] = Imports.GetFramePose(poseType.Projection, 1);
                 gameProjectionMatrix[0].M43 *= -1;
@@ -2070,59 +2078,59 @@ namespace xivr
             }
 
 
+
+            bool doLocomotion = false;
+            Vector3 angles = new Vector3();
+            if (xivr_Ex.cfg!.data.conloc)
+            {
+                angles = GetAngles(lhcMatrix);
+                doLocomotion = true;
+            }
+            else if (xivr_Ex.cfg!.data.hmdloc)
+            {
+                angles = GetAngles(hmdMatrix);
+                doLocomotion = true;
+            }
+            if (doLocomotion)
+            {
+                float up_down = (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) + -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)));
+                float left_right = -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) + (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)));
+
+                float stickAngle = MathF.Atan2(left_right, up_down);
+                if (left_right == -1) stickAngle = -90 * Deg2Rad;
+                else if (left_right == 1) stickAngle = 90 * Deg2Rad;
+                stickAngle += angles.Y;
+
+                Vector2 newValue = new Vector2(MathF.Sin(stickAngle), MathF.Cos(stickAngle));
+                float hyp = MathF.Sqrt(up_down * up_down + left_right * left_right);
+                newValue.X *= hyp;
+                newValue.Y *= hyp;
+
+                //PluginLog.Log($"{angles.Y * Rad2Deg} {newValue.Y} | {newValue.X} | {stickAngle * Rad2Deg}");
+                if (newValue.Y > 0)
+                {
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) = MathF.Abs(newValue.Y);
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4))) = 0;
+                }
+                else
+                {
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) = 0;
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4))) = MathF.Abs(newValue.Y);
+                }
+
+                if (newValue.X > 0)
+                {
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) = 0;
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4))) = MathF.Abs(newValue.X);
+                }
+                else
+                {
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) = MathF.Abs(newValue.X);
+                    (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4))) = 0;
+                }
+            }
             if (hooksSet && enableVR && xivr_Ex.cfg!.data.motioncontrol)
             {
-                bool doLocomotion = false;
-                Vector3 angles = new Vector3();
-                if (xivr_Ex.cfg!.data.conloc)
-                {
-                    angles = GetAngles(lhcMatrix);
-                    doLocomotion = true;
-                }
-                else if (xivr_Ex.cfg!.data.hmdloc)
-                {
-                    angles = GetAngles(hmdMatrix);
-                    doLocomotion = true;
-                }
-                if (doLocomotion)
-                {
-                    float up_down = (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) + -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)));
-                    float left_right = -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) + (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)));
-
-                    float stickAngle = MathF.Atan2(left_right, up_down);
-                    if (left_right == -1) stickAngle = -90 * Deg2Rad;
-                    else if (left_right == 1) stickAngle = 90 * Deg2Rad;
-                    stickAngle += angles.Y;
-
-                    Vector2 newValue = new Vector2(MathF.Sin(stickAngle), MathF.Cos(stickAngle));
-                    float hyp = MathF.Sqrt(up_down * up_down + left_right * left_right);
-                    newValue.X *= hyp;
-                    newValue.Y *= hyp;
-
-                    //PluginLog.Log($"{angles.Y * Rad2Deg} {newValue.Y} | {newValue.X} | {stickAngle * Rad2Deg}");
-                    if (newValue.Y > 0)
-                    {
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) = MathF.Abs(newValue.Y);
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4))) = 0;
-                    }
-                    else
-                    {
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) = 0;
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4))) = MathF.Abs(newValue.Y);
-                    }
-
-                    if (newValue.X > 0)
-                    {
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) = 0;
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4))) = MathF.Abs(newValue.X);
-                    }
-                    else
-                    {
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) = MathF.Abs(newValue.X);
-                        (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4))) = 0;
-                    }
-                }
-
                 leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
                 float curRightTriggerValue = *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4));
                 float curRightBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4));
@@ -3272,7 +3280,7 @@ namespace xivr
             byte lockItem = 0;
 
             float armLength = csb.armLength * skeleton->Transform.Scale.Y;
-            Matrix4x4 hmdLocalScale = Matrix4x4.CreateScale(armLength / 0.5f);
+            Matrix4x4 hmdLocalScale = Matrix4x4.CreateScale((armLength / 0.5f) * (ikElement->armMultiplier / 100.0f));
             Matrix4x4 hmdRotate = Matrix4x4.CreateFromYawPitchRoll(90 * Deg2Rad, 180 * Deg2Rad, 0 * Deg2Rad);
             Matrix4x4 hmdFlipScale = Matrix4x4.CreateScale(-1, 1, -1);
 
@@ -3294,7 +3302,7 @@ namespace xivr
 
             hkIKSetup ikSetupL = new hkIKSetup();
             bool runIKL = false;
-            if (csb.e_arm_l >= 0 && csb.e_forearm_l >= 0 && csb.e_hand_l >= 0 && xivr_Ex.cfg!.data.motioncontrol)
+            if (csb.e_arm_l >= 0 && csb.e_forearm_l >= 0 && csb.e_hand_l >= 0 && ikElement->doHandIK)
             {
                 runIKL = true;
                 Matrix4x4 palmL = hmdRotate * matrixLHC * hmdFlipScale;
@@ -3310,7 +3318,7 @@ namespace xivr
 
             hkIKSetup ikSetupR = new hkIKSetup();
             bool runIKR = false;
-            if (csb.e_arm_r >= 0 && csb.e_forearm_r >= 0 && csb.e_hand_r >= 0 && xivr_Ex.cfg!.data.motioncontrol)
+            if (csb.e_arm_r >= 0 && csb.e_forearm_r >= 0 && csb.e_hand_r >= 0 && ikElement->doHandIK)
             {
                 runIKR = true;
                 Matrix4x4 palmR = hmdRotate * matrixRHC * hmdFlipScale;
@@ -3458,7 +3466,9 @@ namespace xivr
             skeleton->Transform = transformS;
 
             float armLength = csb.armLength * skeleton->Transform.Scale.Y;
-            hmdWorldScale = Matrix4x4.CreateScale(armLength / 0.5f);
+            hmdWorldScale = Matrix4x4.Identity;
+            if (gameMode.Current == CameraModes.FirstPerson)
+                hmdWorldScale = Matrix4x4.CreateScale((armLength / 0.5f) * (xivr_Ex.cfg!.data.armMultiplier / 100.0f));
             hkQsTransformf transform;
 
             //----
@@ -4808,6 +4818,11 @@ namespace xivr
                     }
             }
 
+            float armMultiplier = 100.0f;
+            if (gameMode.Current == CameraModes.FirstPerson)
+                armMultiplier = xivr_Ex.cfg!.data.armMultiplier;
+            bool motionControls = xivr_Ex.cfg!.data.motioncontrol;
+
             multiIK[0].Enqueue(new stMultiIK(
                 character->CurrentWorld, 
                 character->GameObject.ObjectID, 
@@ -4816,7 +4831,10 @@ namespace xivr
                 isPlayer,
                 hmd, 
                 lhc, 
-                rhc));
+                rhc,
+                motionControls,
+                armMultiplier
+                ));
             multiIK[1].Enqueue(new stMultiIK(
                 character->CurrentWorld, 
                 character->GameObject.ObjectID, 
@@ -4825,7 +4843,10 @@ namespace xivr
                 isPlayer,
                 hmd,
                 lhc, 
-                rhc));
+                rhc,
+                motionControls,
+                armMultiplier
+                ));
         }
         private void GetMultiplayerIKData()
         {

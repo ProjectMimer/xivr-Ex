@@ -15,14 +15,14 @@ namespace xivr
             if (!isVisible)
                 return;
 
-            ImGui.SetNextWindowSize(new Vector2(750, 740) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
-            ImGui.SetNextWindowSizeConstraints(new Vector2(750, 740) * ImGuiHelpers.GlobalScale, new Vector2(9999));
+            ImGui.SetNextWindowSize(new Vector2(750, 760) * ImGuiHelpers.GlobalScale, ImGuiCond.FirstUseEver);
+            ImGui.SetNextWindowSizeConstraints(new Vector2(750, 770) * ImGuiHelpers.GlobalScale, new Vector2(9999));
             //if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             
 
             if (ImGui.Begin("Configuration", ref isVisible, ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse))
             {
-                ImGui.BeginChild("Outer", new Vector2(730, 720) * ImGuiHelpers.GlobalScale, true);
+                ImGui.BeginChild("Outer", new Vector2(730, 750) * ImGuiHelpers.GlobalScale, true);
 
                 ShowKofi(lngOptions);
 
@@ -53,7 +53,7 @@ namespace xivr
 
                 ImGui.SameLine();
 
-                ImGui.BeginChild("Misc", new Vector2(350, 200) * ImGuiHelpers.GlobalScale, true);
+                ImGui.BeginChild("Misc", new Vector2(350, 230) * ImGuiHelpers.GlobalScale, true);
 
                 if (ImGui.Checkbox(lngOptions.motioncontrol_Line1, ref xivr_Ex.cfg!.data.motioncontrol))
                 {
@@ -125,7 +125,7 @@ namespace xivr
 
         public static void DrawUISetings(uiOptionStrings lngOptions)
         {
-            ImGui.BeginChild("UI", new Vector2(350, 400) * ImGuiHelpers.GlobalScale, true);
+            ImGui.BeginChild("UI", new Vector2(350, 440) * ImGuiHelpers.GlobalScale, true);
 
             ImGui.Text(lngOptions.uiOffsetZ_Line1); ImGui.SameLine(); 
             if(ImGui.SliderFloat("##DrawUISetings:uizoff", ref xivr_Ex.cfg!.data.uiOffsetZ, 0, 100, "%.0f"))
@@ -146,6 +146,10 @@ namespace xivr
                 xivr_Ex.Plugin.doUpdate = true;
 
             if (ImGui.Checkbox(lngOptions.swapEyesUI_Line1, ref xivr_Ex.cfg!.data.swapEyesUI))
+                xivr_Ex.Plugin.doUpdate = true;
+
+            ImGui.Text(lngOptions.armMultiplier_Line1); ImGui.SameLine();
+            if (ImGui.SliderFloat("##DrawUISetings:armmultiplier", ref xivr_Ex.cfg!.data.armMultiplier, 0, 200, "%.f"))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.Text(lngOptions.offsetAmountX_Line1); ImGui.SameLine();

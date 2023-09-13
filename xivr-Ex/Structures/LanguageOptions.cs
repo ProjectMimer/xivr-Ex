@@ -51,6 +51,7 @@ namespace xivr.Structures
         public string support_Line1;
         public string autoMove_Line1;
         public string enableOSK_Line1;
+        public string armMultiplier_Line1;
     }
 
     public static class Language
@@ -71,8 +72,7 @@ namespace xivr.Structures
                     vertloc_Line1 = "1st person locomotion allow vertical movement",
                     forceFloatingScreen_Line1 = "Flat mode",
                     forceFloatingInCutscene_Line1 = "Flat mode in Cutscene",
-                    immersiveMovement_Line1 = "Immersive Mode - Movement Only",
-                    immersiveFull_Line1 = "Immersive Mode - Full",
+                    immersiveMovement_Line1 = "Immersive Mode",
                     horizonLock_Line1 = "Keep headset level with horizon",
                     snapRotateAmountX_Line1 = "Horizontal Snap",
                     snapRotateAmountX_Line2 = "Amount",
@@ -97,7 +97,8 @@ namespace xivr.Structures
                     showWeaponInHand_Line1 = "Show Weapon In Hand",
                     support_Line1 = "Support via Ko-fi",
                     autoMove_Line1 = "Auto Move when activated",
-                    enableOSK_Line1 = "Virtual Keyboard (Requires Admin)"
+                    enableOSK_Line1 = "Virtual Keyboard (Requires Admin)",
+                    armMultiplier_Line1 = "IK Hand Distance Scale"
                 }
             },
             {
@@ -115,8 +116,7 @@ namespace xivr.Structures
                     vertloc_Line1 = "一人称移動上下操作を有効にする",
                     forceFloatingScreen_Line1 = "平面モード",
                     forceFloatingInCutscene_Line1 = "ムービー中平面モード",
-                    immersiveMovement_Line1 = "Immersive Mode - Movement Only",
-                    immersiveFull_Line1 = "Immersive Mode - Full",
+                    immersiveMovement_Line1 = "没入モード",
                     horizonLock_Line1 = "地平線と水平を保つ",
                     snapRotateAmountX_Line1 = "水平スナップ回転",
                     snapRotateAmountX_Line2 = "度数",
@@ -141,7 +141,8 @@ namespace xivr.Structures
                     showWeaponInHand_Line1 = "手の中の武器表示する",
                     support_Line1 = "Ko-fiで支援",
                     autoMove_Line1 = "自動ウィンドウ位置調整",
-                    enableOSK_Line1 = "バーチャルキーボード（管理者権限必要）"
+                    enableOSK_Line1 = "バーチャルキーボード（管理者権限必要",
+                    armMultiplier_Line1 = "IK手距離スケール"
                 }
             }
         };

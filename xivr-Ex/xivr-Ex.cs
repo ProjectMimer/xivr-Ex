@@ -67,7 +67,7 @@ namespace xivr
         private Point origWindowSize = new Point(0, 0);
         public bool doUpdate = false;
         public int alphaValue = 0;
-        private int UpdateValue = 1;
+        private int UpdateValue = 2;
 
         public unsafe xivr_Ex()
         { 

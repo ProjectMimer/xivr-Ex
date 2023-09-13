@@ -57,6 +57,7 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool immersiveFull;
             [MarshalAs(UnmanagedType.U1)] public bool ultrawideshadows;
             [MarshalAs(UnmanagedType.U1)] public bool osk;
+            [MarshalAs(UnmanagedType.R4)] public float armMultiplier;
 
             public cfgData()
             {
@@ -103,6 +104,7 @@ namespace xivr
                 immersiveFull = false;
                 ultrawideshadows = false;
                 osk = false;
+                armMultiplier = 100.0f;
             }
         }
 

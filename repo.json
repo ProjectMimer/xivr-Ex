@@ -14,11 +14,11 @@
     "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1694502905,
+    "LastUpdated": 1694589639,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.0/xivr-Ex.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.0/xivr-Ex.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.0/xivr-Ex.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.1/xivr-Ex.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.1/xivr-Ex.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.1/xivr-Ex.zip"
   },
   {
     "Author": "Marulu, StreetRat",
