@@ -4,7 +4,7 @@
     "Name": "XIVR-Ex - VR Mod",
     "Description": "Mod to allow vr + extra options",
     "InternalName": "xivr-Ex",
-    "AssemblyVersion": "0.0.5.1",
+    "AssemblyVersion": "0.0.5.2",
     "RepoUrl": "https://github.com/ProjectMimer/xivr-Ex",
     "ApplicableVersion": "any",
     "Tags": [
@@ -14,11 +14,11 @@
     "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1694596201,
+    "LastUpdated": 1694595948,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.1/xivr-Ex.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.1/xivr-Ex.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.1/xivr-Ex.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.2/xivr-Ex.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.2/xivr-Ex.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.5.2/xivr-Ex.zip"
   },
   {
     "Author": "Marulu, StreetRat",

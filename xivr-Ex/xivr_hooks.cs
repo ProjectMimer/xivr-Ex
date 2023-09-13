@@ -321,6 +321,9 @@ namespace xivr
                 charList = (CharSelectionCharList*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
                 selectScreenMouseOver = (UInt64)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenMouseOver);
 
+                if (dx11DeviceInstance == null)
+                    dx11DeviceInstance = Device.Instance();
+
                 /*
                 resourceManager = *(ResourceManager**)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_ResourceManagerInstance);
                 if (resourceManager != null)
@@ -498,7 +501,6 @@ namespace xivr
 
                 BoneOutput.boneNameToEnum.Clear();
 
-                
                 //----
                 // Disable any input that might still be on
                 //----
@@ -926,19 +928,17 @@ namespace xivr
             //----
             // Resizes the internal buffers
             //----
+            if (dx11DeviceInstance == null)
+                dx11DeviceInstance = Device.Instance();
+
             dx11DeviceInstance->NewWidth = (uint)width;
             dx11DeviceInstance->NewHeight = (uint)height;
             dx11DeviceInstance->RequestResolutionChange = 1;
-
-            if (xivr_Ex.cfg!.data.vLog)
-                PluginLog.Log($"Setting DX Dev Width/Height");
 
             //----
             // Resizes the client window to match the internal buffers
             //----
             ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
-            if (xivr_Ex.cfg!.data.vLog)
-                PluginLog.Log($"ScreenSettings Offset {(UInt64)screenSettings:x}");
             if(screenSettings != null && screenSettings->hWnd != 0)
                 Imports.ResizeWindow((IntPtr)screenSettings->hWnd, width, height);
         }
