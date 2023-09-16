@@ -13,7 +13,7 @@ namespace xivr
     {
         private static NamePlateObject* currentNPTarget = null;
 
-        public static unsafe bool SetupVRTargetCursor(AtkTextNode** vrTrgCursor)
+        public static unsafe bool SetupVRTargetCursor(AtkTextNode** vrTrgCursor, int targetCursorSize)
         {
             if ((*vrTrgCursor) != null)
             {
@@ -35,7 +35,7 @@ namespace xivr
 
             (*vrTrgCursor)->LineSpacing = 12;
             (*vrTrgCursor)->AlignmentFontType = 4;
-            (*vrTrgCursor)->FontSize = (byte)xivr_Ex.cfg!.data.targetCursorSize;
+            (*vrTrgCursor)->FontSize = (byte)targetCursorSize;
             (*vrTrgCursor)->TextFlags = (byte)(TextFlags.AutoAdjustNodeSize | TextFlags.Edge);
             (*vrTrgCursor)->TextFlags2 = 0;
 
@@ -121,11 +121,11 @@ namespace xivr
             }
         }
 
-        public static void UpdateVRCursorSize(AtkTextNode** vrTrgCursor)
+        public static void UpdateVRCursorSize(AtkTextNode** vrTrgCursor, int targetCursorSize)
         {
             if ((*vrTrgCursor) == null) return;
 
-            (*vrTrgCursor)->FontSize = (byte)xivr_Ex.cfg!.data.targetCursorSize;
+            (*vrTrgCursor)->FontSize = (byte)targetCursorSize;
             ushort outWidth = 0;
             ushort outHeight = 0;
             (*vrTrgCursor)->GetTextDrawSize(&outWidth, &outHeight);

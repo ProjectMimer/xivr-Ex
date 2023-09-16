@@ -561,6 +561,10 @@ namespace xivr
         private void FirstToThirdPersonView()
         {
             Imports.Recenter();
+            //----
+            // Set the near clip
+            //----
+            csCameraManager->GameCamera->Camera.BufferData->NearClip = 0.05f;
             neckOffsetAvg.Reset();
             PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
             if (player != null)
@@ -591,6 +595,10 @@ namespace xivr
         private void ThirdToFirstPersonView()
         {
             Imports.Recenter();
+            //----
+            // Set the near clip
+            //----
+            csCameraManager->GameCamera->Camera.BufferData->NearClip = 0.05f;
             neckOffsetAvg.Reset();
             PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
             if (player != null)
@@ -763,26 +771,8 @@ namespace xivr
                 //hmdMatrix.Translation = headBoneMatrix.Translation;
                 Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
 
-                if (gameMode.Current == CameraModes.FirstPerson)
-                {
-                    if (!isMounted)
-                    {
-                        handWatch = lhcMatrix * hmdWorldScale * hmdOffsetFirstPerson;
-                        handBoneRay = rhcMatrix * hmdWorldScale * hmdOffsetFirstPerson;
-                    }
-                    else
-                    {
-                        handWatch = lhcMatrix * hmdWorldScale * hmdOffsetMountedFirstPerson;
-                        handBoneRay = rhcMatrix * hmdWorldScale * hmdOffsetMountedFirstPerson;
-                    }
-                }
-                else
-                {
-                    handWatch = lhcMatrix * hmdWorldScale;
-                    handBoneRay = rhcMatrix * hmdWorldScale;
-                }
-
-
+                handWatch = lhcMatrix * hmdWorldScale;
+                handBoneRay = rhcMatrix * hmdWorldScale;
 
                 frfCalculateViewMatrix = false;
 
@@ -1008,6 +998,15 @@ namespace xivr
 
         public void OnLogout(object? sender, EventArgs e)
         {
+            //----
+            // Sets the lengths of the TargetSystem to 0 as they keep their size
+            // even though the data is reset
+            //----
+            targetSystem->ObjectFilterArray0.Length = 0;
+            targetSystem->ObjectFilterArray1.Length = 0;
+            targetSystem->ObjectFilterArray2.Length = 0;
+            targetSystem->ObjectFilterArray3.Length = 0;
+
             if (hooksSet && enableVR)
             {
                 //if (DisableCameraCollisionAddr != 0)
@@ -1542,6 +1541,8 @@ namespace xivr
 
                 if (inCutscene.Current || gameMode.Current == CameraModes.ThirdPerson || (!xivr_Ex.cfg!.data.immersiveMovement && !isMounted))
                 {
+                    if(gameMode.Current == CameraModes.ThirdPerson)
+                        neckOffsetAvg.AddNew(rawGameCamera->Position.Y);
                 }
                 else
                 {
@@ -1735,7 +1736,7 @@ namespace xivr
                 }
 
                 fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
-                    VRCursor.SetupVRTargetCursor(pvrTargetCursor);
+                    VRCursor.SetupVRTargetCursor(pvrTargetCursor, xivr_Ex.cfg!.data.targetCursorSize);
 
                 for (byte i = 0; i < NamePlateCount; i++)
                 {
@@ -1769,7 +1770,7 @@ namespace xivr
 
                 fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
                 {
-                    VRCursor.UpdateVRCursorSize(pvrTargetCursor);
+                    VRCursor.UpdateVRCursorSize(pvrTargetCursor, xivr_Ex.cfg!.data.targetCursorSize);
                     VRCursor.SetVRCursor(pvrTargetCursor, selectedNamePlate);
                 }
             }
@@ -3286,7 +3287,7 @@ namespace xivr
 
             hkIKSetup ikSetupHead = new hkIKSetup();
             bool runIKHead = false;
-            if (csb.e_spine_b >= 0 && csb.e_spine_c >= 0 && csb.e_neck >= 0)
+            if (csb.e_spine_b >= 0 && csb.e_spine_c >= 0 && csb.e_neck >= 0 && ikElement->doHandIK)
             {
                 runIKHead = true;
                 Matrix4x4 head = Matrix4x4.CreateFromYawPitchRoll(-90 * Deg2Rad, 0 * Deg2Rad, 90 * Deg2Rad) * matrixHead * hmdFlipScale;
@@ -4768,7 +4769,7 @@ namespace xivr
             //----
             // Check the player
             //----
-            Character* character = GetCharacterOrMouseover();
+            Character* character = GetCharacterOrMouseover(2);
             if (character != null && character != targetSystem->ObjectFilterArray0[0])
                 CheckVisibilityInner(character);
 

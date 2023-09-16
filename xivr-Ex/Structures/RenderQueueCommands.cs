@@ -91,12 +91,14 @@ namespace xivr.Structures
     [StructLayout(LayoutKind.Explicit)]
     public unsafe struct cmdList
     {
-        [FieldOffset(0x08)] public cmdGroup[] list;
+        [FieldOffset(0x00)] public cmdGroup[] list;
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0x10)]
     public unsafe struct cmdGroup
     {
+        [FieldOffset(0x00)] public int unk1;
+        [FieldOffset(0x04)] public int unk2;
         [FieldOffset(0x08)] public cmdType* Type;
         [FieldOffset(0x08)] public cmdType0* SetRenderTarget;
         [FieldOffset(0x08)] public cmdType1* Viewport;
