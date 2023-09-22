@@ -43,6 +43,27 @@
   },
   {
     "Author": "Marulu, StreetRat",
+    "Name": "FriendlyFire",
+    "Description": "Stops you from miss firing by disabling auto target on ranged jobs",
+    "InternalName": "FriendlyFire",
+    "AssemblyVersion": "0.0.0.1",
+    "RepoUrl": "https://github.com/ProjectMimer/FriendlyFire",
+    "ApplicableVersion": "any",
+    "Tags": [
+      "utility"
+    ],
+    "DalamudApiLevel": 8,
+    "IconUrl": "",
+    "IsHide": "False",
+    "IsTestingExclusive": "False",
+    "LastUpdated": 1695368295,
+    "DownloadCount": 0,
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.1/FriendlyFire.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.1/FriendlyFire.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.1/FriendlyFire.zip"
+  },
+  {
+    "Author": "Marulu, StreetRat",
     "Name": "XIVR Preload - VR Mod",
     "Description": "NO LONGER REQURED",
     "InternalName": "xivr_preload",

@@ -1,0 +1,18 @@
+{
+  "Author": "Marulu, StreetRat",
+  "Name": "FriendlyFire",
+  "InternalName": "FriendlyFire",
+  "AssemblyVersion": "0.0.0.1",
+  "Description": "Stops you from miss firing by disabling auto target on ranged jobs",
+  "ApplicableVersion": "any",
+  "RepoUrl": "https://github.com/ProjectMimer/FriendlyFire",
+  "Tags": [
+    "utility"
+  ],
+  "DalamudApiLevel": 8,
+  "LoadRequiredState": 0,
+  "LoadSync": false,
+  "LoadPriority": 0,
+  "Punchline": "Stops AutoTarget on ranged jobs",
+  "AcceptsFeedback": true
+}
