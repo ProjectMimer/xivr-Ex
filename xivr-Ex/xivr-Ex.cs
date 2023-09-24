@@ -47,6 +47,7 @@ namespace xivr
         [PluginService] public static TargetManager? TargetManager { get; private set; }
 
         public static xivr_Ex Plugin { get; private set; }
+        public static SharedMemoryManager smm = new SharedMemoryManager();
         public string Name => "xivr-Ex";
         private const string commandName = "/xivr";
 
@@ -99,7 +100,7 @@ namespace xivr
                 ClientState!.Logout += OnLogout;
                 PluginInterface!.UiBuilder.Draw += Draw;
                 PluginInterface!.UiBuilder.OpenConfigUi += ToggleConfig;
-                
+
                 pluginReady = true;
             }
             catch (Exception e) { PluginLog.LogError($"Failed loading plugin\n{e}"); }
@@ -169,6 +170,7 @@ namespace xivr
                         else
                             cfg!.data.languageType = LanguageTypes.en;
 
+                        smm.SetOpen_XIVR();
                         Marshal.PrelinkAll(typeof(xivr_hooks));
                         return xivr_hooks.Initialize();
                     }
@@ -516,8 +518,12 @@ namespace xivr
                 haveLoaded = false;
                 haveDrawn = false;
 
+                
                 xivr_hooks.Stop();
                 xivr_hooks.Dispose();
+                smm.SetClose_XIVR();
+                smm.Dispose();
+
                 if (hasResized == true)
                 {
                     xivr_hooks.WindowResize(origWindowSize.X, origWindowSize.Y);

@@ -226,7 +226,7 @@ float4 PShader(VOut input) : SV_TARGET
 	float4 pixel = float4(0.0, 0.0, 0.0, 0.0);
 	if (distanceR <= radiusR.x)
 	{
-		pixel = float4(1.0, 0.0, 0.0, 1.0);
+		pixel = float4(1.0, 0.0, 0.0, 0.75);
 	}
 	else if (distanceB <= radiusB.x)
 	{
@@ -528,6 +528,9 @@ bool BasicRenderer::CreateBuffers()
 		return false;
 	}
 
+
+
+
 	return true;
 }
 
@@ -535,6 +538,7 @@ void BasicRenderer::DestroyBuffers()
 {
 	if (pMatrixBuffer) { pMatrixBuffer->Release(); pMatrixBuffer = nullptr; }
 	if (pMouseBuffer) { pMouseBuffer->Release(); pMouseBuffer = nullptr; }
+	destPixelTest.Release();
 
 	curvedUI.Release();
 	osk.Release();
@@ -590,7 +594,12 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 	{
 		mouseBuffer.radiusR.x = 0.0025f;
 		mouseBuffer.radiusB.x = 0.0025f;
-		if (dalamudMode == false)
+		if (showOnUI)
+		{
+			mouseBuffer.radiusR.x = 0.0f;
+			mouseBuffer.radiusB.x = 0.0f;
+		}
+		else if (dalamudMode == false)
 			mouseBuffer.radiusB.x = 0.0f;
 		else if (dalamudMode == true)
 			mouseBuffer.radiusR.x = 0.0f;
@@ -609,7 +618,7 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 	MapResource(pMouseBuffer, &mouseBuffer, sizeof(stMouseBuffer));
 }
 
-void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputRayType, bool dalamudMode, bool showOSK)
+void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputRayType, bool dalamudMode, bool overUIElement, bool showOSK)
 {
 	struct intersectLayout
 	{
@@ -629,6 +638,10 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 	curvedUIAtUI = false;
 	
 	float aspect = (float)screenLayout->width / (float)screenLayout->height;
+	POINT halfScreen = POINT();
+	halfScreen.x = (screenLayout->width / 2);
+	halfScreen.y = (screenLayout->height / 2);
+
 
 	XMMATRIX aspectScaleMatrix = XMMatrixScaling(aspect, 1, 1);
 	XMMATRIX uiScaleMatrix = XMMatrixScaling(cfg->uiOffsetScale, cfg->uiOffsetScale, cfg->uiOffsetScale);
@@ -667,15 +680,15 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 
 		lineData =
 		{
-			origin.m128_f32[0], origin.m128_f32[1], origin.m128_f32[2], 1.0f, 0.0f, 0.0f, 0.75f,
-			end.m128_f32[0], end.m128_f32[1], end.m128_f32[2],			1.0f, 0.0f, 0.0f, 0.25f
+			origin.m128_f32[0], origin.m128_f32[1], origin.m128_f32[2], 1.0f, 0.0f, 0.0f, 1.0f,
+			end.m128_f32[0], end.m128_f32[1], end.m128_f32[2],			1.0f, 0.0f, 0.0f, 1.0f
 		};
 
-		if (dalamudMode)
+		/*if (dalamudMode)
 		{
 			lineData[ 3] = 0.498f; lineData[ 4] = 0.0f; lineData[ 5] = 1.0f;
 			lineData[10] = 0.498f; lineData[11] = 0.0f; lineData[12] = 1.0f;
-		}
+		}*/
 
 		//----
 		// Add all the interactable items to the intersect list
@@ -685,9 +698,12 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 			intersectList.push_back({ &handSquare[i], &handSquareAtUI[i], nullptr, { 0, 0, 0 }, 0, 0, true, false, false });
 		intersectList.push_back({ &osk, &oskAtUI, oskLayout, { 0, 0, 0 }, 0, 1, true, true, false });
 		if(dalamudMode)
-			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 1, false, false, true });
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 1, dalamudMode, false, true });
 		else
-			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 3, false, false, true });
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 3, overUIElement, false, true });
+
+		pixelCoordFromScreen.x = halfScreen.x;
+		pixelCoordFromScreen.y = halfScreen.y;
 
 		//----
 		// Go though all interactable items and check to see if the ray interacts with something
@@ -723,6 +739,9 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 				closest.intersection.m128_f32[0] = closest.intersection.m128_f32[0] * closest.layout->width;
 				closest.intersection.m128_f32[1] = closest.intersection.m128_f32[1] * closest.layout->height;
 
+				pixelCoordFromScreen.x = closest.intersection.m128_f32[0];
+				pixelCoordFromScreen.y = closest.intersection.m128_f32[1];
+
 				//----
 				// Changes anchor from top left corner to middle of screen
 				//----
@@ -741,9 +760,9 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 				lineData[8] = end.m128_f32[1];
 				lineData[9] = end.m128_f32[2];
 			}
-			lineData[10] = 1.0f;
-			lineData[11] = 1.0f;
-			lineData[12] = 1.0f;
+			//lineData[10] = 1.0f;
+			//lineData[11] = 1.0f;
+			//lineData[12] = 1.0f;
 
 			if (inputRayType == poseType::RightHand)
 			{
@@ -755,10 +774,6 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 		{
 			if (needsRecenter)
 			{
-				POINT halfScreen = POINT();
-				halfScreen.x = (screenLayout->width / 2);
-				halfScreen.y = (screenLayout->height / 2);
-
 				needsRecenter = false;
 				SetMousePosition(screenLayout->hwnd, halfScreen.x, halfScreen.y, false);
 			}
@@ -929,6 +944,41 @@ void BasicRenderer::LoadSettings()
 	}
 }
 
+bool BasicRenderer::CheckScreenPixel(stBasicTexture *srcTexture, byte color[4])
+{
+	bool pixelFound = false;
+	int x = min(max(pixelCoordFromScreen.x, 0), srcTexture->textureDesc.Width - 1);
+	int y = min(max(pixelCoordFromScreen.y, 0), srcTexture->textureDesc.Height - 1);
+	D3D11_BOX srcBox = { x, y, 0, x + 1, y + 1, 1 };
+	D3D11_MAPPED_SUBRESOURCE MappedSubresource;
+
+	//----
+	// Create a 1x1 pixel on the cpu to copy data too
+	//----
+	destPixelTest.textureDesc.Format = srcTexture->textureDesc.Format;
+	destPixelTest.textureDesc.Width = 1;
+	destPixelTest.textureDesc.Height = 1;
+	destPixelTest.textureDesc.Usage = D3D11_USAGE_STAGING;
+	destPixelTest.textureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+	destPixelTest.textureDesc.BindFlags = 0;
+	destPixelTest.textureDesc.MiscFlags = 0;
+	destPixelTest.CreateNew(dev, false, false, NULL);
+
+	//----
+	// Copy the pixel from the given texture to the 1x1 cpu texture
+	// and map the texture to find out if the texture color is 
+	// the same as what were looking for
+	//---
+	devcon->CopySubresourceRegion(destPixelTest.pTexture, 0, 0, 0, 0, srcTexture->pTexture, 0, &srcBox);
+	devcon->Map(destPixelTest.pTexture, 0, D3D11_MAP_READ, 0, &MappedSubresource);
+	byte *pPixels = (byte*)MappedSubresource.pData;
+	if (color[0] == pPixels[0] && color[1] == pPixels[1] && color[2] == pPixels[2] && color[3] == pPixels[3])
+		pixelFound = true;
+	devcon->Unmap(destPixelTest.pTexture, 0);
+
+	destPixelTest.Release();
+	return pixelFound;
+}
 
 void BasicRenderer::SetRenderTarget(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv)
 {

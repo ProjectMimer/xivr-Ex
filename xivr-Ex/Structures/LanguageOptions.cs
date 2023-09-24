@@ -52,6 +52,7 @@ namespace xivr.Structures
         public string autoMove_Line1;
         public string enableOSK_Line1;
         public string armMultiplier_Line1;
+        public string disableXboxShoulder_Line1;
     }
 
     public static class Language
@@ -67,9 +68,9 @@ namespace xivr.Structures
                     runRecenter_Line1 = "Recenter",
                     vLog_Line1 = "Verbose Logs",
                     motioncontrol_Line1 = "Enable motion controllers",
-                    conloc_Line1 = "Enable 1st person controller locomotion",
-                    hmdloc_Line1 = "Enable 1st person headset locomotion",
-                    vertloc_Line1 = "1st person locomotion allow vertical movement",
+                    conloc_Line1 = "Enable controller locomotion",
+                    hmdloc_Line1 = "Enable headset locomotion",
+                    vertloc_Line1 = "Flying/swimming vertical locomotion",
                     forceFloatingScreen_Line1 = "Flat mode",
                     forceFloatingInCutscene_Line1 = "Flat mode in Cutscene",
                     immersiveMovement_Line1 = "Immersive Mode",
@@ -98,7 +99,8 @@ namespace xivr.Structures
                     support_Line1 = "Support via Ko-fi",
                     autoMove_Line1 = "Auto Move when activated",
                     enableOSK_Line1 = "Virtual Keyboard (Requires Admin)",
-                    armMultiplier_Line1 = "IK Hand Distance Scale"
+                    armMultiplier_Line1 = "IK Hand Distance Scale",
+                    disableXboxShoulder_Line1 = "Disable XBox Shoulder Buttons"
                 }
             },
             {
@@ -111,9 +113,9 @@ namespace xivr.Structures
                     runRecenter_Line1 = "頭位置リセット",
                     vLog_Line1 = "詳細ログ生成",
                     motioncontrol_Line1 = "モーションコントローラーを有効にする",
-                    conloc_Line1 = "一人称左手移動操作",
-                    hmdloc_Line1 = "一人称頭移動操作",
-                    vertloc_Line1 = "一人称移動上下操作を有効にする",
+                    conloc_Line1 = "左手移動操作",
+                    hmdloc_Line1 = "頭移動操作",
+                    vertloc_Line1 = "左手飛行操作",
                     forceFloatingScreen_Line1 = "平面モード",
                     forceFloatingInCutscene_Line1 = "ムービー中平面モード",
                     immersiveMovement_Line1 = "没入モード",
@@ -142,7 +144,8 @@ namespace xivr.Structures
                     support_Line1 = "Ko-fiで支援",
                     autoMove_Line1 = "自動ウィンドウ位置調整",
                     enableOSK_Line1 = "バーチャルキーボード（管理者権限必要",
-                    armMultiplier_Line1 = "IK手距離スケール"
+                    armMultiplier_Line1 = "IK手距離スケール",
+                    disableXboxShoulder_Line1 = "XBoxショルダーボタン無効"
                 }
             }
         };

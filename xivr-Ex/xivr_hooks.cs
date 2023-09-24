@@ -33,7 +33,6 @@ using xivr.StructuresEx;
 
 namespace xivr
 {
-    public delegate void HandleStatusDelegate(bool status);
     public delegate void HandleInputDelegate(InputAnalogActionData analog, InputDigitalActionData digital);
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
@@ -41,19 +40,6 @@ namespace xivr
 
     [UnmanagedFunctionPointer(CallingConvention.StdCall)]
     public delegate void InternalLogging(String value);
-
-
-
-
-    [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
-    public sealed class HandleStatus : System.Attribute
-    {
-        public string fnName { get; private set; }
-        public HandleStatus(string name)
-        {
-            fnName = name;
-        }
-    }
 
     [System.AttributeUsage(System.AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
     public sealed class HandleInputAttribute : System.Attribute
@@ -63,9 +49,8 @@ namespace xivr
     }
 
 
-    internal unsafe class xivr_hooks
+    public unsafe class xivr_hooks
     {
-        protected Dictionary<string, HandleStatusDelegate> functionList = new Dictionary<string, HandleStatusDelegate>();
         protected Dictionary<ActionButtonLayout, HandleInputDelegate> inputList = new Dictionary<ActionButtonLayout, HandleInputDelegate>();
 
         byte[] GetThreadedDataASM =
@@ -167,6 +152,8 @@ namespace xivr
         private SceneCameraManager* scCameraManager = null;
         private ControlSystemCameraManager* csCameraManager = null;
         private ResourceManager* resourceManager = null;
+        private HookManager hookManager = new HookManager();
+        private MovementManager* movementManager = null;
 
         private Structures.RenderTargetManager* renderTargetManager = null;
         private FFXIVClientStructs.FFXIV.Client.System.Framework.Framework* frameworkInstance = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
@@ -188,6 +175,8 @@ namespace xivr
             internal const string g_SelectScreenMouseOver = "48 8b 0D ?? ?? ?? ?? 48 85 C9 74 ?? BA 03 00 00 00 48 81 C1 20 09 00 00 45 33 C0 E8";
             internal const string g_DisableSetCursorPosAddr = "FF ?? ?? ?? ?? 00 C6 05 ?? ?? ?? ?? 00 0F B6 43 38";
             internal const string g_ResourceManagerInstance = "48 8B 05 ?? ?? ?? ?? 48 8B 08 48 8B 01 48 8B 40 08";
+
+            internal const string g_MovementManager = "48 8D 35 ?? ?? ?? ?? 84 C0 75";
 
             internal const string GetCutsceneCameraOffset = "E8 ?? ?? ?? ?? 48 8B 70 48 48 85 F6";
             internal const string GameObjectGetPosition = "83 79 7C 00 75 09 F6 81 ?? ?? ?? ?? ?? 74 2A";
@@ -243,34 +232,6 @@ namespace xivr
         public static void PrintEcho(string message) => xivr_Ex.ChatGui!.Print($"[xivr] {message}");
         public static void PrintError(string message) => xivr_Ex.ChatGui!.PrintError($"[xivr] {message}");
 
-
-        public void SetFunctionHandles()
-        {
-            //----
-            // Gets a list of all the methods this class contains that are public and instanced (non static)
-            // then looks for a specific attirbute attached to the class
-            // Once found, create a delegate and add both the attribute and delegate to a dictionary
-            //----
-            functionList.Clear();
-            BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
-            foreach (MethodInfo method in this.GetType().GetMethods(flags))
-            {
-                foreach (System.Attribute attribute in method.GetCustomAttributes(typeof(HandleStatus), false))
-                {
-                    string key = ((HandleStatus)attribute).fnName;
-                    HandleStatusDelegate handle = (HandleStatusDelegate)HandleStatusDelegate.CreateDelegate(typeof(HandleStatusDelegate), this, method);
-
-                    if (!functionList.ContainsKey(key))
-                    {
-                        if (xivr_Ex.cfg!.data.vLog)
-                            PluginLog.Log($"SetFunctionHandles Adding {key}");
-                        functionList.Add(key, handle);
-                    }
-                }
-            }
-        }
-
-
         public void SetInputHandles()
         {
             //----
@@ -320,6 +281,7 @@ namespace xivr
                 csCameraManager = (ControlSystemCameraManager*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
                 charList = (CharSelectionCharList*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
                 selectScreenMouseOver = (UInt64)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenMouseOver);
+                movementManager = (MovementManager*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_MovementManager);
 
                 if (dx11DeviceInstance == null)
                     dx11DeviceInstance = Device.Instance();
@@ -353,7 +315,7 @@ namespace xivr
 
                 curRenderMode = RenderModes.None;
                 GetThreadedDataInit();
-                SetFunctionHandles();
+                hookManager.SetFunctionHandles(this, xivr_Ex.cfg.data.vLog);
                 SetInputHandles();
 
                 controllerCallback = (buttonId, analog, digital) =>
@@ -468,12 +430,9 @@ namespace xivr
                     j++;
                 }
 
-                //----
-                // Enable all hooks
-                //----
-                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
-                    attrib.Value(true);
-
+                hookManager.EnableFunctionHandles(xivr_Ex.cfg.data.vLog);
+                xivr_Ex.smm.SetActive_XIVR();
+                
                 hooksSet = true;
                 if (xivr_Ex.ClientState!.LocalPlayer)
                     OnLogin(null, new EventArgs());
@@ -493,12 +452,8 @@ namespace xivr
                 PluginLog.Log($"Stop A {initalized} {hooksSet}");
             if (hooksSet)
             {
-                //----
-                // Disable all hooks
-                //----
-                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
-                    attrib.Value(false);
-
+                xivr_Ex.smm.SetInactive_XIVR();
+                hookManager.DisableFunctionHandles(xivr_Ex.cfg.data.vLog);
                 BoneOutput.boneNameToEnum.Clear();
 
                 //----
@@ -1638,17 +1593,13 @@ namespace xivr
                     gameCamera->Camera.VRotationThisFrame2 = 0;
 
                 gameCamera->Camera.HRotationThisFrame2 += rotateAmount.X;
+                gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
 
                 if (gameMode.Current == CameraModes.FirstPerson)
                 {
                     gameCamera->Camera.VRotationThisFrame1 = 0.0f;
                     gameCamera->Camera.VRotationThisFrame2 = 0.0f;
                 }
-
-                if (xivr_Ex.cfg!.data.vertloc)
-                    gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
-                else
-                    gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
 
                 rotateAmount.X = 0;
                 rotateAmount.Y = 0;
@@ -2084,7 +2035,7 @@ namespace xivr
             Vector3 angles = new Vector3();
             if (xivr_Ex.cfg!.data.conloc)
             {
-                angles = GetAngles(lhcMatrix);
+                angles = GetAngles(lhcPalmMatrix);
                 doLocomotion = true;
             }
             else if (xivr_Ex.cfg!.data.hmdloc)
@@ -2101,6 +2052,9 @@ namespace xivr
                 if (left_right == -1) stickAngle = -90 * Deg2Rad;
                 else if (left_right == 1) stickAngle = 90 * Deg2Rad;
                 stickAngle += angles.Y;
+
+                if(xivr_Ex.cfg!.data.vertloc)
+                    movementManager->Ground.AscendDecendPitch = MathF.Min(1.5f, MathF.Max(-1.5f, (angles.X * 1.5f))) + 0.5f;
 
                 Vector2 newValue = new Vector2(MathF.Sin(stickAngle), MathF.Cos(stickAngle));
                 float hyp = MathF.Sqrt(up_down * up_down + left_right * left_right);
@@ -2231,13 +2185,7 @@ namespace xivr
                         rightStickAltMode = ((rightStickAltMode) ? false : true);
                     else
                     {
-                        if (xboxStatus.right_bumper.active == true)
-                        {
-                            toggleDalamudMode();
-                            Imports.HapticFeedback(ActionButtonLayout.haptics_right, 0.1f, 50.0f, 100.0f);
-                        }
-                        else
-                            *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
+                        *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = rightStickOrig;
                     }
 
                     updateRightAfterInput = true;
@@ -2252,10 +2200,13 @@ namespace xivr
                     *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = 0;
                 }
 
-                if (isCharMake)
+                if (isCharMake || xivr_Ex.cfg!.data.disableXboxShoulder)
                 {
                     *(float*)(controllerAddress + (UInt64)(offsets->left_trigger * 4)) = 0;
                     *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = 0;
+
+                    //*(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4)) = 0; //needed for zooming
+                    *(float*)(controllerAddress + (UInt64)(offsets->right_bumper * 4)) = 0;
                 }
 
                 ControllerInputHook!.Original(a, b, c);
@@ -2799,20 +2750,14 @@ namespace xivr
         public void inputXBoxButtonX(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             float value = (digital.bState == true) ? 1.0f : 0.0f;
-            if (dalamudMode)
-                inputXBoxStart(analog, digital);
-            else
-                xboxStatus.button_x.Set(digital.bState, value);
+            xboxStatus.button_x.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_button_a)]
         public void inputXBoxButtonA(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             float value = (digital.bState == true) ? 1.0f : 0.0f;
-            if (dalamudMode)
-                inputEscape(analog, digital);
-            else
-                xboxStatus.button_a.Set(digital.bState, value);
+            xboxStatus.button_a.Set(digital.bState, value);
         }
 
         [HandleInputAttribute(ActionButtonLayout.xbox_button_b)]
@@ -2921,10 +2866,7 @@ namespace xivr
         public void inputThumbrestRight(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             if (digital.bChanged)
-            {
                 leftStickAltMode = digital.bState;
-                dalamudMode = digital.bState;
-            }
         }
 
         //----
@@ -4717,7 +4659,7 @@ namespace xivr
                     model->CullType = ModelCullTypes.Visible;
 
                 DrawDataContainer* drawData = &character->DrawData;
-                if (drawData != null)
+                if (drawData != null && !drawData->IsWeaponHidden)
                 {
                     UInt64 mhOffset = (UInt64)(&drawData->MainHand);
                     if (mhOffset != 0)

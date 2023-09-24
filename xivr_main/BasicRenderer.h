@@ -95,6 +95,8 @@ class BasicRenderer
 	bool handSquareAtUI[9] = {};
 	int handSquareCount = sizeof(handSquare) / sizeof(RenderObject);
 	bool needsRecenter = true;
+	POINT pixelCoordFromScreen = POINT();
+	stBasicTexture destPixelTest;
 
 	bool haveSaved = false;
 	ID3D11BlendState* savedBlendState = nullptr;
@@ -123,6 +125,8 @@ class BasicRenderer
 	ID3D11Buffer* savedIndexBuffer = nullptr;
 	DXGI_FORMAT	savedIndexFormat = DXGI_FORMAT_R16_UINT;
 	UINT savedIndexOffset = 0;
+	
+
 
 	bool CompileShaderFromString(std::string shaderSource, std::string shaderName, std::string target, ID3D10Blob** shader);
 	bool CreateShaders();
@@ -138,11 +142,12 @@ public:
 	bool SetDevice(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
 	void SetMousePosition(HWND hwnd, int mouseX, int mouseY, bool forceMouse = false);
 	void SetMouseBuffer(HWND hwnd, int width, int height, int mouseX, int mouseY, bool dalamudMode);
-	void RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputType, bool dalamudMode, bool showOSK);
+	void RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputType, bool dalamudMode, bool overUIElement, bool showOSK);
 	void RenderLines(std::vector<std::vector<float>> LineRender);
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, ID3D11DepthStencilView* dsv, stMatrixSet* matrixSet, bool isOrthog = false);
 	void SaveSettings();
 	void LoadSettings();
+	bool CheckScreenPixel(stBasicTexture* srcTexture, byte color[4]);
 	void SetRenderTarget(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv);
 	void SetClearColor(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv, float color[], bool clearDepth = false);
 	void SetBlendIndex(int index);

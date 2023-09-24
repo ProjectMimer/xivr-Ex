@@ -804,19 +804,24 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 		else
 			matrixSet.gameWorldMatrix = curViewMatrixWithoutHMD;
 
+		byte dClear[4] = { 0, 0, 0, 255 };
+		byte uiClear[4] = { 0, 0, 0, 0 };
+		dalamudMode = !rend->CheckScreenPixel(&dalamudBuffer, dClear);
+		bool overUIElement = !rend->CheckScreenPixel(&uiRenderTarget[0], uiClear);
+
 		//----
 		// Sets the mouse and ray for the next frame with the current tracking data
 		//----
 		if (cfg.motioncontrol)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dalamudMode, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dalamudMode, overUIElement, showOSK);
 		else if (cfg.hmdPointing)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dalamudMode, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dalamudMode, overUIElement, showOSK);
 		else
-			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dalamudMode, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dalamudMode, overUIElement, showOSK);
 		rend->RenderLines(LineRender);
 
 		rend->SetMouseBuffer(screenLayout.hwnd, screenLayout.width, screenLayout.height, virtualMouse.x, virtualMouse.y, dalamudMode);
-
+		
 		if (rend->HasErrors())
 		{
 			outputLog << rend->GetErrors();
@@ -836,6 +841,7 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 			handWatchList[14].pShaderResource, handWatchList[15].pShaderResource,
 			handWatchList[16].pShaderResource, handWatchList[17].pShaderResource,
 		};
+
 
 		for (int i = 0; i < 2; i++)
 		{
@@ -868,6 +874,7 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 				if (!useBackBuffer)
 					rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
 			}
+			//rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 1, cfg.uiDepth);
 			rend->DoRenderOSK(viewports[vp], oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth);
 			
 			//matrixSet.lhcMatrix

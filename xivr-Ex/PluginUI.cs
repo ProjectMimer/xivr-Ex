@@ -67,10 +67,10 @@ namespace xivr
                 if (ImGui.Checkbox(lngOptions.hmdloc_Line1, ref xivr_Ex.cfg!.data.hmdloc))
                     xivr_Ex.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox(lngOptions.immersiveMovement_Line1, ref xivr_Ex.cfg!.data.immersiveMovement))
+                if (ImGui.Checkbox(lngOptions.vertloc_Line1, ref xivr_Ex.cfg!.data.vertloc))
                     xivr_Ex.Plugin.doUpdate = true;
 
-                if (ImGui.Checkbox(lngOptions.vertloc_Line1, ref xivr_Ex.cfg!.data.vertloc))
+                if (ImGui.Checkbox(lngOptions.immersiveMovement_Line1, ref xivr_Ex.cfg!.data.immersiveMovement))
                     xivr_Ex.Plugin.doUpdate = true;
 
                 if (ImGui.Checkbox(lngOptions.showWeaponInHand_Line1, ref xivr_Ex.cfg!.data.showWeaponInHand))
@@ -116,6 +116,9 @@ namespace xivr
 
             ImGui.Text(lngOptions.snapRotateAmountY_Line2); ImGui.SameLine();
             if (ImGui.SliderFloat("##DrawLocks:vsa", ref xivr_Ex.cfg!.data.snapRotateAmountY, 0, 90, "%.0f"))
+                xivr_Ex.Plugin.doUpdate = true;
+
+            if (ImGui.Checkbox(lngOptions.disableXboxShoulder_Line1, ref xivr_Ex.cfg!.data.disableXboxShoulder))
                 xivr_Ex.Plugin.doUpdate = true;
 
             ImGui.EndChild();

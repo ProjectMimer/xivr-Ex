@@ -58,6 +58,7 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool ultrawideshadows;
             [MarshalAs(UnmanagedType.U1)] public bool osk;
             [MarshalAs(UnmanagedType.R4)] public float armMultiplier;
+            [MarshalAs(UnmanagedType.U1)] public bool disableXboxShoulder;
 
             public cfgData()
             {
@@ -75,9 +76,9 @@ namespace xivr
                 horizontalLock = false;
                 verticalLock = true;
                 horizonLock = true;
-                conloc = false;
+                conloc = true;
                 hmdloc = false;
-                vertloc = false;
+                vertloc = true;
                 motioncontrol = true;
                 showWeaponInHand = false;
                 offsetAmountX = 0.0f;
@@ -105,6 +106,7 @@ namespace xivr
                 ultrawideshadows = false;
                 osk = false;
                 armMultiplier = 100.0f;
+                disableXboxShoulder = false;
             }
         }
 
