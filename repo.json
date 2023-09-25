@@ -4,7 +4,7 @@
     "Name": "XIVR-Ex - VR Mod",
     "Description": "Mod to allow vr + extra options",
     "InternalName": "xivr-Ex",
-    "AssemblyVersion": "0.0.6.0",
+    "AssemblyVersion": "0.0.6.1",
     "RepoUrl": "https://github.com/ProjectMimer/xivr-Ex",
     "ApplicableVersion": "any",
     "Tags": [
@@ -14,18 +14,18 @@
     "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1695534050,
+    "LastUpdated": 1695624049,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.6.0/xivr-Ex.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.6.0/xivr-Ex.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.6.0/xivr-Ex.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.6.1/xivr-Ex.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.6.1/xivr-Ex.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.6.1/xivr-Ex.zip"
   },
   {
     "Author": "Marulu, StreetRat",
     "Name": "StopTheClip",
     "Description": "Do you want to take close up screenshots? Are you a melee and hate having the boss model disappear on you? Then this is the plugin for you, it overrides the near clip and stops models from hiding on camera collision. This plugin is based on XIVR code. ",
     "InternalName": "StopTheClip",
-    "AssemblyVersion": "0.0.0.4",
+    "AssemblyVersion": "0.0.0.5",
     "RepoUrl": "https://github.com/ProjectMimer/StopTheClip",
     "ApplicableVersion": "any",
     "Tags": [
@@ -35,11 +35,11 @@
     "IconUrl": "",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1695196735,
+    "LastUpdated": 1695624049,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.4/StopTheClip.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.4/StopTheClip.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.4/StopTheClip.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.5/StopTheClip.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.5/StopTheClip.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.5/StopTheClip.zip"
   },
   {
     "Author": "Marulu, StreetRat",

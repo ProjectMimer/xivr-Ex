@@ -2,7 +2,7 @@
   "Author": "Marulu, StreetRat",
   "Name": "StopTheClip",
   "InternalName": "StopTheClip",
-  "AssemblyVersion": "0.0.0.4",
+  "AssemblyVersion": "0.0.0.5",
   "Description": "Do you want to take close up screenshots? Are you a melee and hate having the boss model disappear on you? Then this is the plugin for you, it overrides the near clip and stops models from hiding on camera collision. This plugin is based on XIVR code.",
   "ApplicableVersion": "any",
   "RepoUrl": "https://github.com/ProjectMimer/StopTheClip",
