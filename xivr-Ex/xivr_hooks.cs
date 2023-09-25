@@ -431,7 +431,6 @@ namespace xivr
                 }
 
                 hookManager.EnableFunctionHandles(xivr_Ex.cfg.data.vLog);
-                xivr_Ex.smm.SetActive_XIVR();
                 
                 hooksSet = true;
                 if (xivr_Ex.ClientState!.LocalPlayer)
@@ -452,7 +451,6 @@ namespace xivr
                 PluginLog.Log($"Stop A {initalized} {hooksSet}");
             if (hooksSet)
             {
-                xivr_Ex.smm.SetInactive_XIVR();
                 hookManager.DisableFunctionHandles(xivr_Ex.cfg.data.vLog);
                 BoneOutput.boneNameToEnum.Clear();
 
@@ -2028,8 +2026,6 @@ namespace xivr
                 if (xboxStatus.select.active)
                     *(float*)(controllerAddress + (UInt64)(offsets->select * 4)) = xboxStatus.select.value;
             }
-
-
 
             bool doLocomotion = false;
             Vector3 angles = new Vector3();

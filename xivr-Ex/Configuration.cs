@@ -91,7 +91,7 @@ namespace xivr
                 snapRotateAmountX = 45.0f;
                 snapRotateAmountY = 15.0f;
                 uiDepth = true;
-                uiOffsetZ = 50.0f;
+                uiOffsetZ = 25.0f;
                 uiOffsetScale = 1.0f;
                 ipdOffset = 0.0f;
                 swapEyes = false;

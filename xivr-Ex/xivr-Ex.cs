@@ -6,21 +6,22 @@ using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Dalamud;
-using Dalamud.Game;
 using Dalamud.Logging;
 using Dalamud.Plugin;
 using Dalamud.Interface;
-using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game;
 using Dalamud.Game.Command;
 using Dalamud.Game.ClientState;
-using Dalamud.IoC;
+using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.Gui;
+using Dalamud.IoC;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using xivr.Structures;
+using MemoryManager.Structures;
 using static xivr.Configuration;
-using Dalamud.Game.ClientState.Party;
 
 namespace xivr
 {
@@ -170,7 +171,7 @@ namespace xivr
                         else
                             cfg!.data.languageType = LanguageTypes.en;
 
-                        smm.SetOpen_XIVR();
+                        smm.SetOpen(SharedMemoryPlugins.XIVR);
                         Marshal.PrelinkAll(typeof(xivr_hooks));
                         return xivr_hooks.Initialize();
                     }
@@ -409,6 +410,9 @@ namespace xivr
                     {
                         if (xivr_hooks.enableVR)
                         {
+                            smm.SetActive(SharedMemoryPlugins.XIVR);
+                            //smm.OutputStatus();
+
                             Point hmdSize = Imports.GetBufferSize();
                             cfg!.data.hmdWidth = hmdSize.X;
                             cfg!.data.hmdHeight = hmdSize.Y;
@@ -454,6 +458,8 @@ namespace xivr
                 else if (cfg!.data.isEnabled == false && isEnabled == true)
                 {
                     xivr_hooks.Stop();
+                    smm.SetInactive(SharedMemoryPlugins.XIVR);
+                    //smm.OutputStatus();
                     if (hasResized == true)
                     {
                         xivr_hooks.WindowResize(origWindowSize.X, origWindowSize.Y);
@@ -521,8 +527,9 @@ namespace xivr
                 
                 xivr_hooks.Stop();
                 xivr_hooks.Dispose();
-                smm.SetClose_XIVR();
+                smm.SetClose(SharedMemoryPlugins.XIVR);
                 smm.Dispose();
+                //smm.OutputStatus();
 
                 if (hasResized == true)
                 {

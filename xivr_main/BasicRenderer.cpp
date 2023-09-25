@@ -675,12 +675,13 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 	{
 		XMVECTOR origin = { rayMatrix.r[3].m128_f32[0], rayMatrix.r[3].m128_f32[1], rayMatrix.r[3].m128_f32[2] };
 		XMVECTOR frwd = { rayMatrix.r[2].m128_f32[0], rayMatrix.r[2].m128_f32[1], rayMatrix.r[2].m128_f32[2] };
-		XMVECTOR end = origin + (frwd * -1) * 10.f;
+		XMVECTOR originS = origin + (frwd * -1) * 0.25f;
+		XMVECTOR end = origin + (frwd * -1) * 2.f;
 		XMVECTOR norm = XMVector3Normalize(frwd);
 
 		lineData =
 		{
-			origin.m128_f32[0], origin.m128_f32[1], origin.m128_f32[2], 1.0f, 0.0f, 0.0f, 1.0f,
+			originS.m128_f32[0], originS.m128_f32[1], originS.m128_f32[2], 1.0f, 0.0f, 0.0f, 1.0f,
 			end.m128_f32[0], end.m128_f32[1], end.m128_f32[2],			1.0f, 0.0f, 0.0f, 1.0f
 		};
 

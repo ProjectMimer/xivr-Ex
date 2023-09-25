@@ -1,18 +1,28 @@
 ﻿using Dalamud.Logging;
+using System;
 using System.IO.MemoryMappedFiles;
 using System.Threading;
 
-namespace xivr.Structures
+namespace MemoryManager.Structures
 {
+    public enum SharedMemoryPlugins : ushort
+    {
+        XIVR = 1 << 1,
+        StopTheClip = 1 << 2,
+        ConvenientGraphics = 1 << 3,
+        FriendlyFire = 1 << 4
+    }
+
     public struct SharedMemoryManager
     {
-        public MemoryMappedFile? mmf = MemoryMappedFile.CreateOrOpen("projectMimerSharedMemory_8749602817645945", 1000);
+        public MemoryMappedFile? mmf = null;
         public MemoryMappedViewStream? mmvStream = null;
         public MemoryMappedViewAccessor? mmvAccessor = null;
         public Mutex mutex = new Mutex(false, "projectMimerMutex_8749602817645945");
 
         public SharedMemoryManager()
         {
+            mmf = MemoryMappedFile.CreateOrOpen("projectMimerSharedMemory_8749602817645945", 1000);
             if (mmf != null)
             {
                 mmvStream = mmf.CreateViewStream(0, 0);
@@ -23,73 +33,87 @@ namespace xivr.Structures
         public void Dispose()
         {
             if (mmvAccessor != null)
+            {
+                mutex.WaitOne(1000);
+                ushort anyActive = mmvAccessor.ReadUInt16(0);
+                mutex.ReleaseMutex();
+
+                if (anyActive > 0)
+                {
+                    mmvAccessor = null;
+                    mmvStream = null;
+                    mmf = null;
+                    return;
+                }
+            }
+
+            if (mmvAccessor != null)
+            {
                 mmvAccessor.Dispose();
+                mmvAccessor = null;
+            }
 
             if (mmvStream != null)
+            {
                 mmvStream.Dispose();
+                mmvStream = null;
+            }
 
             if (mmf != null)
+            {
                 mmf.Dispose();
+                mmf = null;
+            }
         }
 
 
-        private void SetItemActive(int offset, int shift, ushort mask)
+        private void SetItemActive(int offset, ushort shift, ushort mask)
         {
             if (mmvAccessor != null)
             {
                 mutex.WaitOne(1000);
-                ushort value = (ushort)((mmvAccessor.ReadUInt16(offset) & mask) + (1 << shift));
+                ushort value = (ushort)((mmvAccessor.ReadUInt16(offset) & mask) + shift);
                 mmvAccessor.Write(offset, value);
                 mutex.ReleaseMutex();
             }
         }
 
-        private void SetItemInactive(int offset, int shift, short mask)
+        private void SetItemInactive(int offset, ushort shift, ushort mask)
         {
             if (mmvAccessor != null)
             {
                 mutex.WaitOne(1000);
-                ushort value = (ushort)(mmvAccessor.ReadInt16(offset) & mask);
+                ushort value = (ushort)(mmvAccessor.ReadUInt16(offset) & mask);
                 mmvAccessor.Write(offset, value);
                 mutex.ReleaseMutex();
             }
         }
 
-        private bool CheckActive(int offset, int shift, short mask)
+        private bool CheckActive(int offset, ushort shift, ushort mask)
         {
             bool retVal = false;
             if (mmvAccessor != null)
             {
                 mutex.WaitOne(1000);
-                retVal = ((ushort)(mmvAccessor.ReadInt16(offset) & (1 << shift)) == (1 << shift));
+                retVal = ((ushort)(mmvAccessor.ReadUInt16(offset) & shift) == shift);
                 mutex.ReleaseMutex();
             }
             return retVal;
         }
 
-        public void SetOpen_XIVR() => SetItemActive(0, 0, 0xFE);
-        public void SetClose_XIVR() { SetInactive_XIVR(); SetItemInactive(0, 0, 0xFE); }
-        public void SetActive_XIVR() => SetItemActive(16, 0, 0xFE);
-        public void SetInactive_XIVR() => SetItemInactive(16, 0, 0xFE);
-        public bool CheckOpen_XIVR() => CheckActive(0, 0, 0xFE);
-        public bool CheckActive_XIVR() => CheckActive(16, 0, 0xFE);
+        public void SetOpen(SharedMemoryPlugins pluginOffset) => SetItemActive(0, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
+        public void SetClose(SharedMemoryPlugins pluginOffset) { SetInactive(pluginOffset); SetItemInactive(0, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset)); }
+        public void SetActive(SharedMemoryPlugins pluginOffset) => SetItemActive(16, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
+        public void SetInactive(SharedMemoryPlugins pluginOffset) => SetItemInactive(16, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
+        public bool CheckOpen(SharedMemoryPlugins pluginOffset) => CheckActive(0, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
+        public bool CheckActive(SharedMemoryPlugins pluginOffset) => CheckActive(16, (ushort)pluginOffset, (ushort)(0xFF - pluginOffset));
 
-
-        public void SetOpen_StopTheClip() => SetItemActive(0, 1, 0xFD);
-        public void SetClose_StopTheClip() { SetInactive_StopTheClip(); SetItemInactive(0, 1, 0xFD); }
-        public void SetActive_StopTheClip() => SetItemActive(16, 1, 0xFD);
-        public void SetInactive_StopTheClip() => SetItemInactive(16, 1, 0xFD);
-        public bool CheckOpen_StopTheClip() => CheckActive(0, 1, 0xFD);
-        public bool CheckActive_StopTheClip() => CheckActive(16, 1, 0xFD);
-
-
-        public void SetOpen_ConvenientGraphics() => SetItemActive(0, 2, 0xFB);
-        public void SetClose_ConvenientGraphics() { SetInactive_ConvenientGraphics(); SetItemInactive(0, 2, 0xFB); }
-        public void SetActive_ConvenientGraphics() => SetItemActive(16, 2, 0xFB);
-        public void SetInactive_ConvenientGraphics() => SetItemInactive(16, 2, 0xFB);
-        public bool CheckOpen_ConvenientGraphics() => CheckActive(0, 2, 0xFB);
-        public bool CheckActive_ConvenientGraphics() => CheckActive(16, 2, 0xFB);
-
+        public void OutputStatus()
+        {
+            foreach (SharedMemoryPlugins plugin in Enum.GetValues(typeof(SharedMemoryPlugins)))
+            {
+                PluginLog.Log($"{(ushort)plugin}: {plugin} Open: {CheckOpen(plugin)} Active: {CheckActive(plugin)}");
+            }
+        }
     }
-
 }
