@@ -64,6 +64,27 @@
   },
   {
     "Author": "Marulu, StreetRat",
+    "Name": "ConvenientGraphics",
+    "Description": "Changing Graphics and other settings on the fly",
+    "InternalName": "ConvenientGraphics",
+    "AssemblyVersion": "0.0.0.2",
+    "RepoUrl": "https://github.com/ProjectMimer/ConvenientGraphics",
+    "ApplicableVersion": "any",
+    "Tags": [
+      "utility"
+    ],
+    "DalamudApiLevel": 8,
+    "IconUrl": "",
+    "IsHide": "False",
+    "IsTestingExclusive": "False",
+    "LastUpdated": 1695821548,
+    "DownloadCount": 0,
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.2/ConvenientGraphics.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.2/ConvenientGraphics.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/releases/downloads/0.0.0.2/ConvenientGraphics.zip"
+  },
+  {
+    "Author": "Marulu, StreetRat",
     "Name": "XIVR Preload - VR Mod",
     "Description": "NO LONGER REQURED",
     "InternalName": "xivr_preload",

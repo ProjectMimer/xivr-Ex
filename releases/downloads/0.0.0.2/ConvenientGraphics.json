@@ -1,0 +1,18 @@
+{
+  "Author": "Marulu, StreetRat",
+  "Name": "ConvenientGraphics",
+  "InternalName": "ConvenientGraphics",
+  "AssemblyVersion": "0.0.0.2",
+  "Description": "",
+  "ApplicableVersion": "any",
+  "RepoUrl": "https://github.com/ProjectMimer/ConvenientGraphics",
+  "Tags": [
+    "utility"
+  ],
+  "DalamudApiLevel": 8,
+  "LoadRequiredState": 0,
+  "LoadSync": false,
+  "LoadPriority": 0,
+  "Punchline": "Changing Graphics and other settings on the fly",
+  "AcceptsFeedback": true
+}
