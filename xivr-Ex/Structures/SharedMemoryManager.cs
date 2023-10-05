@@ -2,6 +2,7 @@
 using System;
 using System.IO.MemoryMappedFiles;
 using System.Threading;
+using xivr;
 
 namespace MemoryManager.Structures
 {
@@ -112,7 +113,7 @@ namespace MemoryManager.Structures
         {
             foreach (SharedMemoryPlugins plugin in Enum.GetValues(typeof(SharedMemoryPlugins)))
             {
-                PluginLog.Log($"{(ushort)plugin}: {plugin} Open: {CheckOpen(plugin)} Active: {CheckActive(plugin)}");
+                Plugin.Log!.Info($"{(ushort)plugin}: {plugin} Open: {CheckOpen(plugin)} Active: {CheckActive(plugin)}");
             }
         }
     }

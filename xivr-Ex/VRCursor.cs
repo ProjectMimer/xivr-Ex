@@ -23,14 +23,14 @@ namespace xivr
             (*vrTrgCursor) = (AtkTextNode*)IMemorySpace.GetUISpace()->Malloc((ulong)sizeof(AtkTextNode), 8);
             if ((*vrTrgCursor) == null)
             {
-                PluginLog.Debug("Failed to allocate memory for text node");
+                Plugin.Log!.Info("Failed to allocate memory for text node");
                 return false;
             }
             IMemorySpace.Memset((*vrTrgCursor), 0, (ulong)sizeof(AtkTextNode));
             (*vrTrgCursor)->Ctor();
 
             (*vrTrgCursor)->AtkResNode.Type = NodeType.Text;
-            (*vrTrgCursor)->AtkResNode.Flags = (short)(NodeFlags.UseDepthBasedPriority);
+            (*vrTrgCursor)->AtkResNode.NodeFlags = NodeFlags.UseDepthBasedPriority;
             (*vrTrgCursor)->AtkResNode.DrawFlags = 12;
 
             (*vrTrgCursor)->LineSpacing = 12;
@@ -116,7 +116,7 @@ namespace xivr
                 }
                 else
                 {
-                    PluginLog.Error("RemoveVRCursor: lastChild != vrTargetCursor");
+                    Plugin.Log!.Error("RemoveVRCursor: lastChild != vrTargetCursor");
                 }
             }
         }

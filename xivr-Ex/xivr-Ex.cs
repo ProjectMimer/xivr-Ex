@@ -6,26 +6,24 @@ using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using Dalamud;
-using Dalamud.Logging;
-using Dalamud.Plugin;
-using Dalamud.Interface;
 using Dalamud.Game;
 using Dalamud.Game.Command;
-using Dalamud.Game.ClientState;
 using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Game.ClientState.Party;
 using Dalamud.Game.ClientState.Objects;
-using Dalamud.Game.Gui;
+using Dalamud.Interface;
 using Dalamud.IoC;
+using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
+
 using xivr.Structures;
 using MemoryManager.Structures;
 using static xivr.Configuration;
 
 namespace xivr
 {
-    public unsafe class xivr_Ex : IDalamudPlugin
+    public unsafe class Plugin : IDalamudPlugin
     {
         //----
         // Required here to load openvr_api, if its not then openvr_api isnt loaded and
@@ -34,29 +32,29 @@ namespace xivr
         [DllImport("openvr_api.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool VR_IsHmdPresent();
 
-        [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; }
-        [PluginService] public static Framework? Framework { get; private set; }
-        [PluginService] public static ClientState? ClientState { get; private set; }
-        [PluginService] public static TitleScreenMenu? TitleScreenMenu { get; private set; }
-        [PluginService] public static Condition? Condition { get; private set; }
-        [PluginService] public static SigScanner? SigScanner { get; private set; }
-        [PluginService] public static ChatGui? ChatGui { get; private set; }
-        [PluginService] public static GameGui? GameGui { get; private set; }
-        [PluginService] public static CommandManager? CommandManager { get; private set; }
-        [PluginService] public static ObjectTable? ObjectTable { get; private set; }
-        [PluginService] public static PartyList? PartyList { get; private set; }
-        [PluginService] public static TargetManager? TargetManager { get; private set; }
+        [PluginService] public static DalamudPluginInterface? PluginInterface { get; private set; } = null;
+        [PluginService] public static IFramework? iFramework { get; private set; } = null;
+        [PluginService] public static IClientState? ClientState { get; private set; } = null;
+        [PluginService] public static ITitleScreenMenu? TitleScreenMenu { get; private set; } = null;
+        [PluginService] public static ICondition? Condition { get; private set; } = null;
+        [PluginService] public static ISigScanner? SigScanner { get; private set; } = null;
+        [PluginService] public static IChatGui? ChatGui { get; private set; } = null;
+        [PluginService] public static IGameGui? GameGui { get; private set; } = null;
+        [PluginService] public static ICommandManager? CommandManager { get; private set; } = null;
+        [PluginService] public static IObjectTable? ObjectTable { get; private set; } = null;
+        [PluginService] public static IPartyList? PartyList { get; private set; } = null;
+        [PluginService] public static IPluginLog? Log { get; private set; } = null;
+        [PluginService] public static ITargetManager? TargetManager { get; private set; } = null;
+        [PluginService] public static IGameInteropProvider Interop { get; private set; } = null;
 
-        public static xivr_Ex Plugin { get; private set; }
         public static SharedMemoryManager smm = new SharedMemoryManager();
+        xivr_hooks xivr_hooks = new xivr_hooks();
+
         public string Name => "xivr-Ex";
         private const string commandName = "/xivr";
 
         public static Configuration? cfg { get; private set; }
-        public static TitleScreenMenu.TitleScreenMenuEntry? xivrMenuEntry { get; private set; }
-
-        xivr_hooks xivr_hooks = new xivr_hooks();
-        
+        public static TitleScreenMenuEntry? xivrMenuEntry { get; private set; }
 
         private bool pluginReady = false;
         private bool haveLoaded = false;
@@ -71,11 +69,10 @@ namespace xivr
         public int alphaValue = 0;
         private int UpdateValue = 2;
 
-        public unsafe xivr_Ex()
+        public unsafe Plugin()
         { 
             try
             {
-                Plugin = this;
                 cfg = PluginInterface!.GetPluginConfig() as Configuration ?? new Configuration();
                 cfg.Initialize(PluginInterface);
                 cfg.CheckVersion(UpdateValue);
@@ -90,13 +87,13 @@ namespace xivr
                     factoryAddress = Imports.GetProcAddress(hModule, "CreateDXGIFactory");
                     factory1Address = Imports.GetProcAddress(hModule, "CreateDXGIFactory1");
 
-                    SignatureHelper.Initialise(this);
-                    CreateDXGIFactoryStatus(true);
+                    Interop.InitializeFromAttributes(this);
+                    CreateDXGIFactoryStatus(true, false);
                 }
                 CheckLoadRequiredStateInJSON();
 
-                Framework!.Update += Update;
-                Framework!.Update += InitializeCheck;
+                iFramework!.Update += Update;
+                iFramework!.Update += InitializeCheck;
                 ClientState!.Login += OnLogin;
                 ClientState!.Logout += OnLogout;
                 PluginInterface!.UiBuilder.Draw += Draw;
@@ -104,13 +101,13 @@ namespace xivr
 
                 pluginReady = true;
             }
-            catch (Exception e) { PluginLog.LogError($"Failed loading plugin\n{e}"); }
+            catch (Exception e) { Log!.Info($"Failed loading plugin\n{e}"); }
         }
 
         private void CheckLoadRequiredStateInJSON()
         {
-            string pluginJSON = Path.Combine(PluginInterface!.AssemblyLocation.DirectoryName, "xivr-Ex.json");
-            //PluginLog.Log($"{pluginJSON}");
+            string pluginJSON = Path.Combine(PluginInterface!.AssemblyLocation.DirectoryName!, "xivr-Ex.json");
+            //Log!.Info($"{pluginJSON}");
             string jsonData = File.ReadAllText(pluginJSON);
             string[] parts = jsonData.Split("\"LoadRequiredState\":");
             if(parts.Length > 1)
@@ -139,8 +136,8 @@ namespace xivr
                 {
                     var imgBytes = new byte[imgStream.Length];
                     imgStream.Read(imgBytes, 0, imgBytes.Length);
-                    ImGuiScene.TextureWrap image = PluginInterface!.UiBuilder.LoadImage(imgBytes);
-                    xivrMenuEntry = TitleScreenMenu!.AddEntry("xivr-Ex", image, ToggleConfig);
+                    //ImGuiScene.TextureWrap image = PluginInterface!.UiBuilder.LoadImage(imgBytes);
+                    //xivrMenuEntry = TitleScreenMenu!.AddEntry("xivr-Ex", image, ToggleConfig);
                 }
 
                 cfg!.data.isEnabled = false;
@@ -149,7 +146,7 @@ namespace xivr
                 try
                 {
                     Process[] pname = Process.GetProcessesByName("vrserver");
-                    PluginLog.LogError($"SteamVR Active: {((pname.Length > 0) ? true : false)}");
+                    Log!.Info($"SteamVR Active: {((pname.Length > 0) ? true : false)}");
                     if (pname.Length > 0 && cfg.data.isAutoEnabled)
                     {
                         cfg!.data.isEnabled = true;
@@ -157,6 +154,7 @@ namespace xivr
 
                     try
                     {
+                        CommandManager!.RemoveHandler(commandName);
                         CommandManager!.AddHandler(commandName, new CommandInfo(CheckCommands)
                         {
                             HelpMessage = "Opens the VR settings menu."
@@ -175,11 +173,11 @@ namespace xivr
                         Marshal.PrelinkAll(typeof(xivr_hooks));
                         return xivr_hooks.Initialize();
                     }
-                    catch (Exception e) { PluginLog.LogError($"Failed loading vr dll\n{e}"); }
+                    catch (Exception e) { Log!.Error($"Failed loading vr dll\n{e}"); }
                 }
-                catch (Exception e) { PluginLog.LogError($"Failed initalizing vr\n{e}"); }
+                catch (Exception e) { Log!.Error($"Failed initalizing vr\n{e}"); }
             }
-            catch (Exception e) { PluginLog.LogError($"Failed adding menu item\n{e}"); }
+            catch (Exception e) { Log!.Error($"Failed adding menu item\n{e}"); }
             return false;
         }
 
@@ -374,17 +372,17 @@ namespace xivr
             }
         }
 
-        private void InitializeCheck(Framework framework)
+        private void InitializeCheck(IFramework framework)
         {
             if (pluginReady && haveDrawn)
             {
                 haveLoaded = Initialize();
                 if (haveLoaded)
-                    Framework!.Update -= InitializeCheck;
+                    iFramework!.Update -= InitializeCheck;
             }
         }
 
-        private void Update(Framework framework)
+        private void Update(IFramework framework)
         {
             if (pluginReady && haveDrawn && haveLoaded)
             {
@@ -392,7 +390,7 @@ namespace xivr
                 {
                     xivr_hooks.SetRenderingMode();
                     Imports.UpdateConfiguration(cfg!.data);
-                    //PluginLog.Log("Setup Complete");
+                    //Log!.Info("Setup Complete");
                     doUpdate = false;
                 }
 
@@ -417,25 +415,25 @@ namespace xivr
                             cfg!.data.hmdWidth = hmdSize.X;
                             cfg!.data.hmdHeight = hmdSize.Y;
                             cfg.Save();
-                            PluginLog.Log($"Saving HMD Size {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight}");
+                            Log!.Info($"Saving HMD Size {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight}");
                         }
 
                         origWindowSize = xivr_hooks.GetWindowSize();
                         if(cfg!.data.vLog)
-                            PluginLog.Log($"Saving ScreenSize {origWindowSize.X}x{origWindowSize.Y}");
+                            Log!.Info($"Saving ScreenSize {origWindowSize.X}x{origWindowSize.Y}");
 
                         if (cfg!.data.autoResize && cfg!.data.hmdWidth != 0 && cfg!.data.hmdHeight != 0)
                         {
                             xivr_hooks.WindowResize(cfg!.data.hmdWidth, cfg!.data.hmdHeight);
                             hasResized = true;
-                            PluginLog.Log($"Resizing window to: {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight} from {origWindowSize.X}x{origWindowSize.Y}");
+                            Log!.Info($"Resizing window to: {cfg!.data.hmdWidth}x{cfg!.data.hmdHeight} from {origWindowSize.X}x{origWindowSize.Y}");
                         }
 
                         if (cfg!.data.autoMove)
                         {
                             xivr_hooks.WindowMove(false);
                             hasMoved = true;
-                            PluginLog.Log($"Moving Window");
+                            Log!.Info($"Moving Window");
                         }
                         counter--;
                     }
@@ -463,14 +461,14 @@ namespace xivr
                     if (hasResized == true)
                     {
                         xivr_hooks.WindowResize(origWindowSize.X, origWindowSize.Y);
-                        PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
+                        Log!.Info($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
                         hasResized = false;
                     }
 
                     if(hasMoved == true)
                     {
                         xivr_hooks.WindowMove(true);
-                        PluginLog.Log($"Resetting window position");
+                        Log!.Info($"Resetting window position");
                         hasMoved = false;
                     }
 
@@ -487,15 +485,15 @@ namespace xivr
             }
         }
 
-        private void OnLogin(object? sender, EventArgs e)
+        private void OnLogin()
         {
             if (pluginReady)
-                xivr_hooks.OnLogin(sender, e);
+                xivr_hooks.OnLogin();
         }
-        private void OnLogout(object? sender, EventArgs e)
+        private void OnLogout()
         {
             if (pluginReady)
-                xivr_hooks.OnLogout(sender, e);
+                xivr_hooks.OnLogout();
         }
 
         private void Draw()
@@ -503,7 +501,7 @@ namespace xivr
             if (pluginReady)
             {
                 haveDrawn = true;
-                PluginUI.Draw(Language.rawLngData[cfg!.data.languageType]);
+                PluginUI.Draw(Language.rawLngData[cfg!.data.languageType], ref doUpdate);
             }
         }
 
@@ -514,8 +512,8 @@ namespace xivr
             {
                 CommandManager!.RemoveHandler(commandName);
                 TitleScreenMenu!.RemoveEntry(xivrMenuEntry!);
-                Framework!.Update -= Update;
-                Framework!.Update -= InitializeCheck;
+                iFramework!.Update -= Update;
+                iFramework!.Update -= InitializeCheck;
                 ClientState!.Login -= OnLogin;
                 ClientState!.Logout -= OnLogout;
                 PluginInterface!.UiBuilder.Draw -= Draw;
@@ -534,18 +532,19 @@ namespace xivr
                 if (hasResized == true)
                 {
                     xivr_hooks.WindowResize(origWindowSize.X, origWindowSize.Y);
-                    PluginLog.Log($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
+                    Log!.Info($"Resizing window to: {origWindowSize.X}x{origWindowSize.Y}");
                     hasResized = false;
                 }
 
                 if (hasMoved == true)
                 {
                     xivr_hooks.WindowMove(true);
-                    PluginLog.Log($"Resetting window position");
+                    Log!.Info($"Resetting window position");
                     hasMoved = false;
                 }
 
-                CreateDXGIFactoryStatus(false);
+                CreateDXGIFactoryStatus(false, false);
+                CreateDXGIFactoryStatus(false, true);
 
                 pluginReady = false;
             }
@@ -607,17 +606,25 @@ namespace xivr
         private delegate UInt64 CreateDXGIFactory1Dg(GUID* a, UInt64 b);
         private Hook<CreateDXGIFactory1Dg>? CreateDXGIFactory1Hook = null;
 
-        private void CreateDXGIFactoryStatus(bool status)
+        private void CreateDXGIFactoryStatus(bool status, bool dispose)
         {
-            if (status == true)
+            if (dispose)
             {
-                CreateDXGIFactoryHook?.Enable();
-                CreateDXGIFactory1Hook = Hook<CreateDXGIFactory1Dg>.FromAddress(factory1Address, CreateDXGIFactory1Fn);
+                CreateDXGIFactory1Hook?.Dispose();
+                CreateDXGIFactoryHook?.Dispose();
             }
             else
             {
-                CreateDXGIFactory1Hook?.Disable();
-                CreateDXGIFactoryHook?.Disable();
+                if (status)
+                {
+                    CreateDXGIFactoryHook?.Enable();
+                    CreateDXGIFactory1Hook = Interop.HookFromAddress<CreateDXGIFactory1Dg>(factory1Address, CreateDXGIFactory1Fn);
+                }
+                else
+                {
+                    CreateDXGIFactory1Hook?.Disable();
+                    CreateDXGIFactoryHook?.Disable();
+                }
             }
         }
 
@@ -626,7 +633,7 @@ namespace xivr
             UInt64 retVal = 0;
             fixed (GUID* ptrGUI = &IID_IDXGIFactory1)
                 retVal = CreateDXGIFactory1Hook!.Original(ptrGUI, b);
-            PluginLog.Log($"CreateDXGIFactory Redirected to CreateDXGIFactory1 : {retVal}");
+            Log!.Info($"CreateDXGIFactory Redirected to CreateDXGIFactory1 : {retVal}");
             return retVal;
             //return CreateDXGIFactoryHook!.Original(a, b);
         }

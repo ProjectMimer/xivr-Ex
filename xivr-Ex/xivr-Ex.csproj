@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<Authors></Authors>
 		<Company></Company>
-		<Version>0.0.6.1</Version>
+		<Version>0.0.6.2</Version>
 		<Description>XIVR-Ex.</Description>
 		<Copyright></Copyright>
 		<PackageProjectUrl></PackageProjectUrl>
@@ -140,7 +140,7 @@
 	
 
 	<ItemGroup>
-		<PackageReference Include="DalamudPackager" Version="2.1.10" />
+		<PackageReference Include="DalamudPackager" Version="2.1.12" />
 		<Reference Include="FFXIVClientStructs">
 			<HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
 			<Private>false</Private>

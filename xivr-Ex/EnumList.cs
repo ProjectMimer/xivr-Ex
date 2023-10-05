@@ -27,7 +27,7 @@ namespace xivr
     };
 
     [Flags]
-    public enum CharEquipSlots
+    public enum CharEquipSlots : uint
     {
         Head = 0,
         Body = 1,

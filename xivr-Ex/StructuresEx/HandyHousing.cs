@@ -14,7 +14,7 @@ namespace xivr.StructuresEx
 
         public bool Initalize(string g_LayoutWorld)
         {
-            worldLayout = *(LayoutWorld**)xivr_Ex.SigScanner!.GetStaticAddressFromSig(g_LayoutWorld);
+            worldLayout = *(LayoutWorld**)Plugin.SigScanner!.GetStaticAddressFromSig(g_LayoutWorld);
             return true;
         }
 
@@ -25,7 +25,7 @@ namespace xivr.StructuresEx
 
         public void Update(XBoxStatus xboxStatus, Matrix4x4 hmdMatrix, Matrix4x4 rhcMatrix, Matrix4x4 lhcMatrix)
         {
-            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+            PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
             if (player != null && worldLayout != null && worldLayout->housing != null && worldLayout->housing->currentMode == HousingModeTypes.Rotate)
             {
                 Matrix4x4 playerRot = Matrix4x4.CreateFromAxisAngle(new Vector3(0, 1, 0), player.Rotation);

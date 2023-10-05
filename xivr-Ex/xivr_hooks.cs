@@ -7,10 +7,11 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using Dalamud;
+using Dalamud.Plugin.Services;
 using Dalamud.Utility.Signatures;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Hooking;
-using Dalamud.Logging;
+using Dalamud.Memory;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
@@ -23,13 +24,13 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.FFXIV.Client.System.Resource;
 using FFXIVClientStructs.FFXIV.Client.System.Resource.Handle;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Common.Configuration;
 using static FFXIVClientStructs.FFXIV.Client.UI.AddonNamePlate;
 using FFXIVClientStructs.Havok;
 using FFXIVClientStructs.Interop.Attributes;
 
 using xivr.Structures;
 using xivr.StructuresEx;
-
 
 namespace xivr
 {
@@ -156,23 +157,29 @@ namespace xivr
         private MovementManager* movementManager = null;
 
         private Structures.RenderTargetManager* renderTargetManager = null;
-        private FFXIVClientStructs.FFXIV.Client.System.Framework.Framework* frameworkInstance = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+        private Framework* frameworkInstance = Framework.Instance();
         private Device* dx11DeviceInstance = Device.Instance();
         private TargetSystem* targetSystem = TargetSystem.Instance();
-
+        
         private AtkTextNode* vrTargetCursor = null;
         private CharSelectionCharList* charList = null;
 
+        private ConfigBase*[] cfgBase = new ConfigBase*[4];
+        private Dictionary<string, List<Tuple<uint, uint>>> MappedSettings = new Dictionary<string, List<Tuple<uint, uint>>>();
+        private uint MouseOpeLimit = 0;
+
+        //[Signature("DE AD BE EF", ScanType = ScanType.StaticAddress)]
+        //private readonly nint* _idk = null!;
 
         private static class Signatures
         {
-            internal const string g_tls_index = "8B 15 ?? ?? ?? ?? 45 33 E4";
+            internal const string g_tls_index = "8B 15 ?? ?? ?? ?? 45 33 E4 41";
             internal const string g_TextScale = "F3 0F 10 0D ?? ?? ?? ?? F3 0F 10 40 4C";
             internal const string g_SceneCameraManagerInstance = "48 8B 05 ?? ?? ?? ?? 83 78 50 00 75 22";
             internal const string g_RenderTargetManagerInstance = "48 8B 05 ?? ?? ?? ?? 49 63 C8";
             internal const string g_ControlSystemCameraManager = "48 8D 0D ?? ?? ?? ?? F3 0F 10 4B ??";
-            internal const string g_SelectScreenCharacterList = "4C 8D 35 ?? ?? ?? ?? BF C8 00 00 00";
-            internal const string g_SelectScreenMouseOver = "48 8b 0D ?? ?? ?? ?? 48 85 C9 74 ?? BA 03 00 00 00 48 81 C1 20 09 00 00 45 33 C0 E8";
+            //internal const string g_SelectScreenCharacterList = "4C 8D 35 ?? ?? ?? ?? BF C8 00 00 00";
+            internal const string g_SelectScreenMouseOver = "48 8b 0D ?? ?? ?? ?? 48 85 C9 74 ?? BA 03 00 00 00 48 81 C1 70 09 00 00 45 33 C0 E8";
             internal const string g_DisableSetCursorPosAddr = "FF ?? ?? ?? ?? 00 C6 05 ?? ?? ?? ?? 00 0F B6 43 38";
             internal const string g_ResourceManagerInstance = "48 8B 05 ?? ?? ?? ?? 48 8B 08 48 8B 01 48 8B 40 08";
 
@@ -189,14 +196,14 @@ namespace xivr
 
             internal const string SetRenderTarget = "E8 ?? ?? ?? ?? 40 38 BC 24 00 02 00 00";
             internal const string AllocateQueueMemory = "E8 ?? ?? ?? ?? 48 85 C0 74 ?? C7 00 04 00 00 00";
-            internal const string Pushback = "E8 ?? ?? ?? ?? EB ?? 8B 87 6C 04 00 00";
+            internal const string Pushback = "E8 ?? ?? ?? ?? EB ?? 8B 87 ?? ?? 00 00 33 D2";
             internal const string PushbackUI = "E8 ?? ?? ?? ?? EB 05 E8 ?? ?? ?? ?? 4C 8D 5C 24 50";
             internal const string OnRequestedUpdate = "48 8B C4 41 56 48 81 EC ?? ?? ?? ?? 48 89 58 F0";
             internal const string DXGIPresent = "E8 ?? ?? ?? ?? C6 47 79 00 48 8B 8F";
             internal const string RenderThreadSetRenderTarget = "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 41 0F 10 5A 18";
             internal const string CamManagerSetMatrix = "4C 8B DC 49 89 5B 10 49 89 73 18 49 89 7B 20 55 49 8D AB";
             internal const string CSUpdateConstBuf = "4C 8B DC 49 89 5B 20 55 57 41 56 49 8D AB";
-            internal const string SetUIProj = "E8 ?? ?? ?? ?? 8B 0D ?? ?? ?? ?? 48 8D 94 24";
+            internal const string SetUIProj = "E8 ?? ?? ?? ?? 8B 46 08 4C 8D 4E 20";
             internal const string CalculateViewMatrix = "E8 ?? ?? ?? ?? 8B 83 EC 00 00 00 D1 E8 A8 01 74 1B";
             internal const string CutsceneViewMatrix = "E8 ?? ?? ?? ?? 80 BB 98 00 00 00 01 75 ??";
             internal const string UpdateRotation = "E8 ?? ?? ?? ?? 0F B6 93 20 02 00 00 48 8B CB";
@@ -229,8 +236,8 @@ namespace xivr
 
         }
 
-        public static void PrintEcho(string message) => xivr_Ex.ChatGui!.Print($"[xivr] {message}");
-        public static void PrintError(string message) => xivr_Ex.ChatGui!.PrintError($"[xivr] {message}");
+        public static void PrintEcho(string message) => Plugin.ChatGui!.Print($"[xivr] {message}");
+        public static void PrintError(string message) => Plugin.ChatGui!.PrintError($"[xivr] {message}");
 
         public void SetInputHandles()
         {
@@ -250,8 +257,8 @@ namespace xivr
 
                     if (!inputList.ContainsKey(key))
                     {
-                        if (xivr_Ex.cfg!.data.vLog)
-                            PluginLog.Log($"SetInputHandles Adding {key}");
+                        if (Plugin.cfg!.data.vLog)
+                            Plugin.Log!.Info($"SetInputHandles Adding {key}");
                         inputList.Add(key, handle);
                         inputState.Add(key, false);
                         inputStatus.Add(key, new ChangedType<bool>());
@@ -262,29 +269,74 @@ namespace xivr
 
         public bool Initialize()
         {
-            if (xivr_Ex.cfg!.data.vLog)
-                PluginLog.Log($"Initialize A {initalized} {hooksSet}");
+            if (Plugin.cfg!.data.vLog)
+                Plugin.Log!.Info($"Initialize A {initalized} {hooksSet}");
 
             if (initalized == false)
             {
-                SignatureHelper.Initialise(this);
+                Plugin.Interop.InitializeFromAttributes(this);
 
                 BaseAddress = (UInt64)Process.GetCurrentProcess()?.MainModule?.BaseAddress;
-                frameworkInstance = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+                frameworkInstance = Framework.Instance();
 
-                IntPtr tmpAddress = xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SceneCameraManagerInstance);
+                IntPtr tmpAddress = Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_SceneCameraManagerInstance);
                 scCameraManager = (SceneCameraManager*)(*(UInt64*)tmpAddress);
 
-                tls_index = (UInt64)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_tls_index);
-                globalScaleAddress = (UInt64)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_TextScale);
-                RenderTargetManagerAddress = (UInt64)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_RenderTargetManagerInstance);
-                csCameraManager = (ControlSystemCameraManager*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
-                charList = (CharSelectionCharList*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
-                selectScreenMouseOver = (UInt64)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenMouseOver);
-                movementManager = (MovementManager*)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_MovementManager);
+                tls_index = (UInt64)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_tls_index);
+                globalScaleAddress = (UInt64)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_TextScale);
+                RenderTargetManagerAddress = (UInt64)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_RenderTargetManagerInstance);
+                csCameraManager = (ControlSystemCameraManager*)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_ControlSystemCameraManager);
+                //charList = (CharSelectionCharList*)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenCharacterList);
+                selectScreenMouseOver = (UInt64)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_SelectScreenMouseOver);
+                movementManager = (MovementManager*)Plugin.SigScanner!.GetStaticAddressFromSig(Signatures.g_MovementManager);
+
+                DisableSetCursorPosAddr = (UInt64)Plugin.SigScanner!.ScanText(Signatures.g_DisableSetCursorPosAddr);
+                DisableSetCursorPosOrig = *(UInt64*)DisableSetCursorPosAddr;
+                renderTargetManager = *(Structures.RenderTargetManager**)RenderTargetManagerAddress;
 
                 if (dx11DeviceInstance == null)
                     dx11DeviceInstance = Device.Instance();
+
+                cfgBase[0] = &(frameworkInstance->SystemConfig.CommonSystemConfig.ConfigBase);
+                cfgBase[1] = &(frameworkInstance->SystemConfig.CommonSystemConfig.UiConfig);
+                cfgBase[2] = &(frameworkInstance->SystemConfig.CommonSystemConfig.UiControlConfig);
+                cfgBase[3] = &(frameworkInstance->SystemConfig.CommonSystemConfig.UiControlGamepadConfig);
+
+                List<string> cfgSearchStrings = new List<string>() {
+                "MouseOpeLimit",
+                "Gamma",
+                "Fps",
+                "MainAdapter"
+                };
+
+                MappedSettings.Clear();
+                for (uint cfgId = 0; cfgId < cfgBase.Length; cfgId++)
+                {
+                    for (uint i = 0; i < cfgBase[cfgId]->ConfigCount; i++)
+                    {
+                        ConfigEntry cfgItem = cfgBase[cfgId]->ConfigEntry[i];
+                        if (cfgItem.Type == 0)
+                            continue;
+
+                        string name = MemoryHelper.ReadStringNullTerminated(new IntPtr(cfgItem.Name));
+                        if (cfgSearchStrings.Contains(name))
+                        {
+                            if (!MappedSettings.ContainsKey(name))
+                                MappedSettings[name] = new List<Tuple<uint, uint>>();
+                            MappedSettings[name].Add(new Tuple<uint, uint>(cfgId, i));
+                        }
+                    }
+                }
+                /*
+                foreach(KeyValuePair<string, List<Tuple<uint, uint>>> item in MappedSettings)
+                {
+                    Plugin.Log!.Info($"Key Found {item.Key}");
+                    for(int i = 0; i < item.Value.Count; i++)
+                    {
+                        Plugin.Log!.Info($"Location : {i} cfgGroup: {item.Value[i].Item1}  cfgOffset: {item.Value[i].Item2}");
+                    }
+                }
+                */
 
                 /*
                 resourceManager = *(ResourceManager**)xivr_Ex.SigScanner!.GetStaticAddressFromSig(Signatures.g_ResourceManagerInstance);
@@ -300,22 +352,18 @@ namespace xivr
                                 string filename = "" + skelResource->ResourceHandle.FileName;
                                 string[] parts = filename.Split('/');
                                 if(parts.Length > 4)
-                                    PluginLog.Log($"{skelResource->ResourceHandle.Id} {skelResource->ResourceHandle.Category} {parts[1]} {parts[4]}");
+                                    Log!.Info($"{skelResource->ResourceHandle.Id} {skelResource->ResourceHandle.Category} {parts[1]} {parts[4]}");
                                 else
-                                    PluginLog.Log($"{skelResource->ResourceHandle.Id} {skelResource->ResourceHandle.Category} {filename}");
+                                    Log!.Info($"{skelResource->ResourceHandle.Id} {skelResource->ResourceHandle.Category} {filename}");
                             }
                         }
                     }
                 }
                 */
 
-                DisableSetCursorPosAddr = (UInt64)xivr_Ex.SigScanner!.ScanText(Signatures.g_DisableSetCursorPosAddr);
-                DisableSetCursorPosOrig = *(UInt64*)DisableSetCursorPosAddr;
-                renderTargetManager = *(Structures.RenderTargetManager**)RenderTargetManagerAddress;
-
                 curRenderMode = RenderModes.None;
                 GetThreadedDataInit();
-                hookManager.SetFunctionHandles(this, xivr_Ex.cfg.data.vLog);
+                hookManager.SetFunctionHandles(this, Plugin.cfg.data.vLog);
                 SetInputHandles();
 
                 controllerCallback = (buttonId, analog, digital) =>
@@ -326,7 +374,7 @@ namespace xivr
 
                 internalLogging = (value) =>
                 {
-                    PluginLog.Log($"xivr_main: {value}");
+                    Plugin.Log!.Info($"xivr_main: {value}");
                 };
 
                 Imports.SetLogFunction(internalLogging);
@@ -336,8 +384,8 @@ namespace xivr
 
 
 
-            if (xivr_Ex.cfg.data.vLog)
-                PluginLog.Log($"Initialize B {initalized} {hooksSet}");
+            if (Plugin.cfg.data.vLog)
+                Plugin.Log!.Info($"Initialize B {initalized} {hooksSet}");
 
 
             return initalized;
@@ -347,67 +395,68 @@ namespace xivr
 
         public bool Start()
         {
-            if (xivr_Ex.cfg!.data.vLog)
+            if (Plugin.cfg!.data.vLog)
             {
-                PluginLog.Log($"Settings:");
-                PluginLog.Log($"-- isEnabled = {xivr_Ex.cfg.data.isEnabled}");
-                PluginLog.Log($"-- isAutoEnabled = {xivr_Ex.cfg.data.isAutoEnabled}");
-                PluginLog.Log($"-- forceFloatingScreen = {xivr_Ex.cfg.data.forceFloatingScreen}");
-                PluginLog.Log($"-- forceFloatingInCutscene = {xivr_Ex.cfg.data.forceFloatingInCutscene}");
-                PluginLog.Log($"-- horizontalLock = {xivr_Ex.cfg.data.horizontalLock}");
-                PluginLog.Log($"-- verticalLock = {xivr_Ex.cfg.data.verticalLock}");
-                PluginLog.Log($"-- horizonLock = {xivr_Ex.cfg.data.horizonLock}");
-                PluginLog.Log($"-- runRecenter = {xivr_Ex.cfg.data.runRecenter}");
-                PluginLog.Log($"-- offsetAmountX = {xivr_Ex.cfg.data.offsetAmountX}");
-                PluginLog.Log($"-- offsetAmountY = {xivr_Ex.cfg.data.offsetAmountY}");
-                PluginLog.Log($"-- snapRotateAmountX = {xivr_Ex.cfg.data.snapRotateAmountX}");
-                PluginLog.Log($"-- snapRotateAmountY = {xivr_Ex.cfg.data.snapRotateAmountY}");
-                PluginLog.Log($"-- uiOffsetZ = {xivr_Ex.cfg.data.uiOffsetZ}");
-                PluginLog.Log($"-- uiOffsetScale = {xivr_Ex.cfg.data.uiOffsetScale}");
-                PluginLog.Log($"-- conloc = {xivr_Ex.cfg.data.conloc}");
-                PluginLog.Log($"-- swapEyes = {xivr_Ex.cfg.data.swapEyes}");
-                PluginLog.Log($"-- swapEyesUI = {xivr_Ex.cfg.data.swapEyesUI}");
-                PluginLog.Log($"-- motioncontrol = {xivr_Ex.cfg.data.motioncontrol}");
-                PluginLog.Log($"-- hmdWidth = {xivr_Ex.cfg.data.hmdWidth}");
-                PluginLog.Log($"-- hmdHeight = {xivr_Ex.cfg.data.hmdHeight}");
-                PluginLog.Log($"-- autoResize = {xivr_Ex.cfg.data.autoResize}");
-                PluginLog.Log($"-- ipdOffset = {xivr_Ex.cfg.data.ipdOffset}");
-                PluginLog.Log($"-- vLog = {xivr_Ex.cfg.data.vLog}");
-                PluginLog.Log($"-- hmdloc = {xivr_Ex.cfg.data.hmdloc}");
-                PluginLog.Log($"-- vertloc = {xivr_Ex.cfg.data.vertloc}");
-                PluginLog.Log($"-- targetCursorSize = {xivr_Ex.cfg.data.targetCursorSize}");
-                PluginLog.Log($"-- offsetAmountZ = {xivr_Ex.cfg.data.offsetAmountZ}");
-                PluginLog.Log($"-- uiDepth = {xivr_Ex.cfg.data.uiDepth}");
-                PluginLog.Log($"-- hmdPointing = {xivr_Ex.cfg.data.hmdPointing}");
-                PluginLog.Log($"-- mode2d = {xivr_Ex.cfg.data.mode2d}");
-                PluginLog.Log($"-- asymmetricProjection = {xivr_Ex.cfg.data.asymmetricProjection}");
-                PluginLog.Log($"-- immersiveMovement = {xivr_Ex.cfg.data.immersiveMovement}");
-                PluginLog.Log($"-- immersiveFull = {xivr_Ex.cfg.data.immersiveFull}");
-                PluginLog.Log($"Start A {initalized} {hooksSet}");
+                Plugin.Log!.Info($"Settings:");
+                Plugin.Log!.Info($"-- isEnabled = {Plugin.cfg.data.isEnabled}");
+                Plugin.Log!.Info($"-- isAutoEnabled = {Plugin.cfg.data.isAutoEnabled}");
+                Plugin.Log!.Info($"-- forceFloatingScreen = {Plugin.cfg.data.forceFloatingScreen}");
+                Plugin.Log!.Info($"-- forceFloatingInCutscene = {Plugin.cfg.data.forceFloatingInCutscene}");
+                Plugin.Log!.Info($"-- horizontalLock = {Plugin.cfg.data.horizontalLock}");
+                Plugin.Log!.Info($"-- verticalLock = {Plugin.cfg.data.verticalLock}");
+                Plugin.Log!.Info($"-- horizonLock = {Plugin.cfg.data.horizonLock}");
+                Plugin.Log!.Info($"-- runRecenter = {Plugin.cfg.data.runRecenter}");
+                Plugin.Log!.Info($"-- offsetAmountX = {Plugin.cfg.data.offsetAmountX}");
+                Plugin.Log!.Info($"-- offsetAmountY = {Plugin.cfg.data.offsetAmountY}");
+                Plugin.Log!.Info($"-- snapRotateAmountX = {Plugin.cfg.data.snapRotateAmountX}");
+                Plugin.Log!.Info($"-- snapRotateAmountY = {Plugin.cfg.data.snapRotateAmountY}");
+                Plugin.Log!.Info($"-- uiOffsetZ = {Plugin.cfg.data.uiOffsetZ}");
+                Plugin.Log!.Info($"-- uiOffsetScale = {Plugin.cfg.data.uiOffsetScale}");
+                Plugin.Log!.Info($"-- conloc = {Plugin.cfg.data.conloc}");
+                Plugin.Log!.Info($"-- swapEyes = {Plugin.cfg.data.swapEyes}");
+                Plugin.Log!.Info($"-- swapEyesUI = {Plugin.cfg.data.swapEyesUI}");
+                Plugin.Log!.Info($"-- motioncontrol = {Plugin.cfg.data.motioncontrol}");
+                Plugin.Log!.Info($"-- hmdWidth = {Plugin.cfg.data.hmdWidth}");
+                Plugin.Log!.Info($"-- hmdHeight = {Plugin.cfg.data.hmdHeight}");
+                Plugin.Log!.Info($"-- autoResize = {Plugin.cfg.data.autoResize}");
+                Plugin.Log!.Info($"-- ipdOffset = {Plugin.cfg.data.ipdOffset}");
+                Plugin.Log!.Info($"-- vLog = {Plugin.cfg.data.vLog}");
+                Plugin.Log!.Info($"-- hmdloc = {Plugin.cfg.data.hmdloc}");
+                Plugin.Log!.Info($"-- vertloc = {Plugin.cfg.data.vertloc}");
+                Plugin.Log!.Info($"-- targetCursorSize = {Plugin.cfg.data.targetCursorSize}");
+                Plugin.Log!.Info($"-- offsetAmountZ = {Plugin.cfg.data.offsetAmountZ}");
+                Plugin.Log!.Info($"-- uiDepth = {Plugin.cfg.data.uiDepth}");
+                Plugin.Log!.Info($"-- hmdPointing = {Plugin.cfg.data.hmdPointing}");
+                Plugin.Log!.Info($"-- mode2d = {Plugin.cfg.data.mode2d}");
+                Plugin.Log!.Info($"-- asymmetricProjection = {Plugin.cfg.data.asymmetricProjection}");
+                Plugin.Log!.Info($"-- immersiveMovement = {Plugin.cfg.data.immersiveMovement}");
+                Plugin.Log!.Info($"-- immersiveFull = {Plugin.cfg.data.immersiveFull}");
+                Plugin.Log!.Info($"Start A {initalized} {hooksSet}");
             }
 
             if (dx11DeviceInstance == null)
                 dx11DeviceInstance = Device.Instance();
 
-            if (initalized && !hooksSet && xivr_Ex.VR_IsHmdPresent())
+            if (initalized && !hooksSet && Plugin.VR_IsHmdPresent())
             {
-                if (xivr_Ex.cfg.data.vLog)
-                    PluginLog.Log($"SetDX Dx: {(IntPtr)dx11DeviceInstance:x} | RndTrg:{*(IntPtr*)RenderTargetManagerAddress:x}");
+                if (Plugin.cfg.data.vLog)
+                    Plugin.Log!.Info($"SetDX Dx: {(IntPtr)dx11DeviceInstance:x} | RndTrg:{*(IntPtr*)RenderTargetManagerAddress:x}");
 
-                if (!Imports.SetDX11((IntPtr)dx11DeviceInstance, *(IntPtr*)RenderTargetManagerAddress, xivr_Ex.PluginInterface!.AssemblyLocation.DirectoryName!))
+                if (!Imports.SetDX11((IntPtr)dx11DeviceInstance, *(IntPtr*)RenderTargetManagerAddress, Plugin.PluginInterface!.AssemblyLocation.DirectoryName!))
                     return false;
 
-                string filePath = Path.Join(xivr_Ex.PluginInterface!.AssemblyLocation.DirectoryName, "config", "actions.json");
+                string filePath = Path.Join(Plugin.PluginInterface!.AssemblyLocation.DirectoryName, "config", "actions.json");
                 if (Imports.SetActiveJSON(filePath, filePath.Length) == false)
-                    PluginLog.LogError($"Error loading Json file : {filePath}");
+                    Plugin.Log!.Info($"Error loading Json file : {filePath}");
 
                 SetRenderingMode();
 
-                SavedSettings[ConfigOption.MouseOpeLimit] = ConfigModule.Instance()->GetIntValue(ConfigOption.MouseOpeLimit);
-                if (ConfigModule.Instance()->GetIntValue(ConfigOption.Gamma) == 50)
-                    ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 49);
-                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 1);
+
+                MouseOpeLimit = GetSettingsValue(MappedSettings["MouseOpeLimit"], 0);
+                if (GetSettingsValue(MappedSettings["Gamma"], 0) == 50)
+                    SetSettingsValue(MappedSettings["Gamma"], 49);
+                SetSettingsValue(MappedSettings["Fps"], 0);
+                SetSettingsValue(MappedSettings["MouseOpeLimit"], 1);
 
                 if (DisableSetCursorPosAddr != 0)
                     SafeMemory.Write<UInt64>((IntPtr)DisableSetCursorPosAddr, DisableSetCursorPosOverride);
@@ -430,15 +479,15 @@ namespace xivr
                     j++;
                 }
 
-                hookManager.EnableFunctionHandles(xivr_Ex.cfg.data.vLog);
+                hookManager.EnableFunctionHandles(Plugin.cfg.data.vLog);
                 
                 hooksSet = true;
-                if (xivr_Ex.ClientState!.LocalPlayer)
-                    OnLogin(null, new EventArgs());
+                if (Plugin.ClientState!.LocalPlayer)
+                    OnLogin();
                 PrintEcho("Starting VR.");
             }
-            if (xivr_Ex.cfg.data.vLog)
-                PluginLog.Log($"Start B {initalized} {hooksSet}");
+            if (Plugin.cfg.data.vLog)
+                Plugin.Log!.Info($"Start B {initalized} {hooksSet}");
 
             return hooksSet;
         }
@@ -447,11 +496,11 @@ namespace xivr
 
         public void Stop()
         {
-            if (xivr_Ex.cfg!.data.vLog)
-                PluginLog.Log($"Stop A {initalized} {hooksSet}");
+            if (Plugin.cfg!.data.vLog)
+                Plugin.Log!.Info($"Stop A {initalized} {hooksSet}");
             if (hooksSet)
             {
-                hookManager.DisableFunctionHandles(xivr_Ex.cfg.data.vLog);
+                hookManager.DisableFunctionHandles(Plugin.cfg.data.vLog);
                 BoneOutput.boneNameToEnum.Clear();
 
                 //----
@@ -470,9 +519,9 @@ namespace xivr
                 eyeOffsetMatrix[1] = Matrix4x4.Identity;
                 curRenderMode = RenderModes.None;
 
-                ConfigModule.Instance()->SetOption(ConfigOption.Gamma, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.Fps, 0);
-                ConfigModule.Instance()->SetOption(ConfigOption.MouseOpeLimit, 0);
+                SetSettingsValue(MappedSettings["Gamma"], 0);
+                SetSettingsValue(MappedSettings["Fps"], 0);
+                SetSettingsValue(MappedSettings["MouseOpeLimit"], 0);
 
                 //----
                 // Reset the FOV values
@@ -493,7 +542,7 @@ namespace xivr
                 fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
                     VRCursor.FreeVRTargetCursor(pvrTargetCursor);
 
-                AtkUnitBase* targetAddon = (AtkUnitBase*)xivr_Ex.GameGui!.GetAddonByName("_TargetCursor", 1);
+                AtkUnitBase* targetAddon = (AtkUnitBase*)Plugin.GameGui!.GetAddonByName("_TargetCursor", 1);
                 if (targetAddon != null)
                     targetAddon->Alpha = targetAddonAlpha;
 
@@ -503,14 +552,26 @@ namespace xivr
                     SafeMemory.Write<UInt64>((IntPtr)DisableSetCursorPosAddr, DisableSetCursorPosOrig);
 
                 Imports.UnsetDX11();
-                OnLogout(null, new EventArgs());
+                OnLogout();
                 hooksSet = false;
                 PrintEcho("Stopping VR.");
             }
-            if (xivr_Ex.cfg.data.vLog)
-                PluginLog.Log($"Stop B {initalized} {hooksSet}");
+            if (Plugin.cfg.data.vLog)
+                Plugin.Log!.Info($"Stop B {initalized} {hooksSet}");
         }
 
+        private void SetSettingsValue(List<Tuple<uint, uint>> list, uint value)
+        {
+            foreach (Tuple<uint, uint> item in list)
+                cfgBase[item.Item1]->ConfigEntry[item.Item2].SetValueUInt(value);
+        }
+
+        private uint GetSettingsValue(List<Tuple<uint, uint>> list, int index)
+        {
+            if (index >= list.Count)
+                return 0;
+            return cfgBase[list[index].Item1]->ConfigEntry[list[index].Item2].Value.UInt;
+        }
         private void FirstToThirdPersonView()
         {
             Imports.Recenter();
@@ -519,7 +580,7 @@ namespace xivr
             //----
             csCameraManager->GameCamera->Camera.BufferData->NearClip = 0.05f;
             neckOffsetAvg.Reset();
-            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+            PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
             if (player != null)
             {
                 GameObject* bonedObject = (GameObject*)player.Address;
@@ -530,9 +591,12 @@ namespace xivr
                     //bonedCharacter->DrawData.Flags1 = HideHeadValue;
 
                     UInt64 equipOffset = (UInt64)(UInt64*)&bonedCharacter->DrawData;
-                    ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, currentEquipmentSet.Head);
-                    ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, currentEquipmentSet.Ears);
-                    ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Neck, currentEquipmentSet.Neck);
+                    fixed(CharEquipSlotData *ptr = &currentEquipmentSet.Head)
+                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, ptr);
+                    fixed (CharEquipSlotData* ptr = &currentEquipmentSet.Ears)
+                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, ptr);
+                    fixed (CharEquipSlotData* ptr = &currentEquipmentSet.Neck)
+                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Neck, ptr);
 
                     //ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.MainHand, currentWeaponSet.MainHand, 0, 1, 0, 0);
                     //ChangeWeaponHook!.Original(equipOffset, CharWeaponSlots.OffHand, currentWeaponSet.OffHand, 0, 1, 0, 0);
@@ -553,7 +617,7 @@ namespace xivr
             //----
             csCameraManager->GameCamera->Camera.BufferData->NearClip = 0.05f;
             neckOffsetAvg.Reset();
-            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+            PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
             if (player != null)
             {
                 GameObject* bonedObject = (GameObject*)player.Address;
@@ -576,9 +640,12 @@ namespace xivr
                         HideHeadValue = bonedCharacter->DrawData.Flags1;
                         bonedCharacter->DrawData.Flags1 = 0;
 
-                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, hiddenEquipHead);
-                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Neck, hiddenEquipNeck);
-                        ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, hiddenEquipEars);
+                        fixed (CharEquipSlotData* ptr = &hiddenEquipHead)
+                            ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Head, ptr);
+                        fixed (CharEquipSlotData* ptr = &hiddenEquipNeck)
+                            ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Neck, ptr);
+                        fixed (CharEquipSlotData* ptr = &hiddenEquipEars)
+                            ChangeEquipmentHook!.Original(equipOffset, CharEquipSlots.Ears, ptr);
 
                         RefreshObject((GameObject*)player.Address);
                     }
@@ -708,7 +775,7 @@ namespace xivr
         }
 
 
-        public void Update(Dalamud.Game.Framework framework_)
+        public void Update(IFramework framework)
         {
         }
         public void RunUpdate()
@@ -728,7 +795,7 @@ namespace xivr
                 handBoneRay = rhcMatrix * hmdWorldScale;
 
                 frfCalculateViewMatrix = false;
-
+                
                 Point currentMouse = new Point();
                 Point halfScreen = new Point();
                 if (dx11DeviceInstance != null && dx11DeviceInstance->SwapChain != null)
@@ -736,9 +803,9 @@ namespace xivr
                     halfScreen.X = ((int)dx11DeviceInstance->SwapChain->Width / 2);
                     halfScreen.Y = ((int)dx11DeviceInstance->SwapChain->Height / 2);
                 }
-
+                
                 ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
-                //PluginLog.Log($"{(int)dx11DeviceInstance->SwapChain->Height} {(int)dx11DeviceInstance->SwapChain->Width}");
+                //Log!.Info($"{(int)dx11DeviceInstance->SwapChain->Height} {(int)dx11DeviceInstance->SwapChain->Width}");
                 Imports.GetCursorPos(out currentMouse);
                 Imports.ScreenToClient((IntPtr)screenSettings->hWnd, out currentMouse);
 
@@ -751,7 +818,7 @@ namespace xivr
                 //----
                 virtualMouse.X = halfScreen.X + ((currentMouse.X - halfScreen.X) * mouseMultiplyer);
                 virtualMouse.Y = halfScreen.Y + ((currentMouse.Y - halfScreen.Y) * mouseMultiplyer);
-
+                
                 if (gameMode.Current == CameraModes.ThirdPerson && gameMode.Changed == true)
                     FirstToThirdPersonView();
                 else if (gameMode.Current == CameraModes.FirstPerson && gameMode.Changed == true)
@@ -770,7 +837,7 @@ namespace xivr
 
                 isMounted = false;
 
-                PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+                PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
                 if (player != null)
                 {
                     Character* bonedCharacter = (Character*)player.Address;
@@ -803,19 +870,19 @@ namespace xivr
                 //----
                 if (targetAddonAlpha == 0)
                 {
-                    AtkUnitBase* targetAddon = (AtkUnitBase*)xivr_Ex.GameGui!.GetAddonByName("_TargetCursor", 1);
+                    AtkUnitBase* targetAddon = (AtkUnitBase*)Plugin.GameGui!.GetAddonByName("_TargetCursor", 1);
                     if (targetAddon != null)
                         targetAddonAlpha = targetAddon->Alpha;
                 }
-
-                isCharMake = (AtkUnitBase*)xivr_Ex.GameGui!.GetAddonByName("_CharaMakeTitle", 1) != null;
-                isCharSelect = (AtkUnitBase*)xivr_Ex.GameGui!.GetAddonByName("_CharaSelectTitle", 1) != null;
-                isHousing = (AtkUnitBase*)xivr_Ex.GameGui!.GetAddonByName("HousingGoods", 1) != null;
+                
+                isCharMake = (AtkUnitBase*)Plugin.GameGui!.GetAddonByName("_CharaMakeTitle", 1) != null;
+                isCharSelect = (AtkUnitBase*)Plugin.GameGui!.GetAddonByName("_CharaSelectTitle", 1) != null;
+                isHousing = (AtkUnitBase*)Plugin.GameGui!.GetAddonByName("HousingGoods", 1) != null;
 
                 if (isCharSelect || isCharMake)
                     gameMode.Current = CameraModes.ThirdPerson;
 
-                if (!isCharMake && !isCharSelect && xivr_Ex.ClientState!.LocalPlayer == null)
+                if (!isCharMake && !isCharSelect && Plugin.ClientState!.LocalPlayer == null)
                     timer = 100;
 
                 if (timer > 0)
@@ -827,7 +894,7 @@ namespace xivr
                 {
                     timer = -1;
                 }
-
+                
                 //if (curRenderMode == RenderModes.TwoD)
                 //    curEye = 0;
                 //else
@@ -838,7 +905,7 @@ namespace xivr
             //xivr_Ex.cfg!.data.immersiveMovement = true;
             //isMounted = false;
             //SetFramePose();
-            //PluginLog.Log($"-- Update --  {curEye}");
+            //Log!.Info($"-- Update --  {curEye}");
         }
 
         public void toggleDalamudMode()
@@ -888,9 +955,12 @@ namespace xivr
 
         public void WindowMove(bool reset)
         {
-            int mainScreenAdapter = ConfigModule.Instance()->GetIntValue(ConfigOption.MainAdapter);
+            //----
+            // should get the value from ingame, but value dosnt return a 0 - x adapter
+            //----
+            uint mainScreenAdapter = 0; // GetSettingsValue(MappedSettings["MainAdapter"], 0);
             ScreenSettings* screenSettings = *(ScreenSettings**)((UInt64)frameworkInstance + 0x7A8);
-            Imports.MoveWindowPos((IntPtr)screenSettings->hWnd, mainScreenAdapter, reset);
+            Imports.MoveWindowPos((IntPtr)screenSettings->hWnd, (int)mainScreenAdapter, reset);
         }
 
         public void SetRenderingMode()
@@ -898,7 +968,7 @@ namespace xivr
             if (hooksSet && enableVR)
             {
                 RenderModes rMode = curRenderMode;
-                if (xivr_Ex.cfg!.data.mode2d)
+                if (Plugin.cfg!.data.mode2d)
                     rMode = RenderModes.TwoD;
                 else
                     rMode = RenderModes.AlternatEye;
@@ -920,25 +990,25 @@ namespace xivr
                 }
                 hmdWorldScale = Matrix4x4.Identity;
                 if (gameMode.Current == CameraModes.FirstPerson)
-                    hmdWorldScale = Matrix4x4.CreateScale((armLength / 0.5f) * (xivr_Ex.cfg!.data.armMultiplier / 100.0f));
+                    hmdWorldScale = Matrix4x4.CreateScale((armLength / 0.5f) * (Plugin.cfg!.data.armMultiplier / 100.0f));
 
                 gameProjectionMatrix[0] = Imports.GetFramePose(poseType.Projection, 0);
                 gameProjectionMatrix[1] = Imports.GetFramePose(poseType.Projection, 1);
                 gameProjectionMatrix[0].M43 *= -1;
                 gameProjectionMatrix[1].M43 *= -1;
 
-                hmdOffsetFirstPerson = Matrix4x4.CreateTranslation(0, (xivr_Ex.cfg.data.offsetAmountYFPS / 100), (xivr_Ex.cfg.data.offsetAmountZFPS / 100));
+                hmdOffsetFirstPerson = Matrix4x4.CreateTranslation(0, (Plugin.cfg.data.offsetAmountYFPS / 100), (Plugin.cfg.data.offsetAmountZFPS / 100));
                 //hmdOffsetFirstPerson *= hmdWorldScale;
 
-                hmdOffsetThirdPerson = Matrix4x4.CreateTranslation((xivr_Ex.cfg.data.offsetAmountX / 100), (xivr_Ex.cfg.data.offsetAmountY / 100), (xivr_Ex.cfg.data.offsetAmountZ / 100));
+                hmdOffsetThirdPerson = Matrix4x4.CreateTranslation((Plugin.cfg.data.offsetAmountX / 100), (Plugin.cfg.data.offsetAmountY / 100), (Plugin.cfg.data.offsetAmountZ / 100));
                 //hmdOffsetThirdPerson *= hmdWorldScale;
 
-                hmdOffsetMountedFirstPerson = Matrix4x4.CreateTranslation(0, (xivr_Ex.cfg.data.offsetAmountYFPSMount / 100), (xivr_Ex.cfg.data.offsetAmountZFPSMount / 100));
+                hmdOffsetMountedFirstPerson = Matrix4x4.CreateTranslation(0, (Plugin.cfg.data.offsetAmountYFPSMount / 100), (Plugin.cfg.data.offsetAmountZFPSMount / 100));
                 //hmdOffsetMountedFirstPerson *= hmdWorldScale;
             }
         }
 
-        public void OnLogin(object? sender, EventArgs e)
+        public void OnLogin()
         {
             if (hooksSet && enableVR)
             {
@@ -949,7 +1019,7 @@ namespace xivr
             }
         }
 
-        public void OnLogout(object? sender, EventArgs e)
+        public void OnLogout()
         {
             //----
             // Sets the lengths of the TargetSystem to 0 as they keep their size
@@ -969,14 +1039,15 @@ namespace xivr
 
         public void Dispose()
         {
-            if (xivr_Ex.cfg!.data.vLog)
-                PluginLog.Log($"Dispose A {initalized} {hooksSet}");
+            if (Plugin.cfg!.data.vLog)
+                Plugin.Log!.Info($"Dispose A {initalized} {hooksSet}");
             if (getThreadedDataHandle.IsAllocated)
                 getThreadedDataHandle.Free();
             initalized = false;
-            if (xivr_Ex.cfg!.data.vLog)
-                PluginLog.Log($"Dispose B {initalized} {hooksSet}");
+            if (Plugin.cfg!.data.vLog)
+                Plugin.Log!.Info($"Dispose B {initalized} {hooksSet}");
             exExtras.Dispose();
+            hookManager.DisposeFunctionHandles(Plugin.cfg.data.vLog);
         }
 
         private void AddClearCommand(Structures.Texture* rendTexture, Structures.Texture* depthTexture, bool depth = false, float r = 0, float g = 0, float b = 0, float a = 0)
@@ -1126,12 +1197,15 @@ namespace xivr
         private Hook<PushbackUIDg>? PushbackUIHook = null;
 
         [HandleStatus("PushbackUI")]
-        public void PushbackUIStatus(bool status)
+        public void PushbackUIStatus(bool status, bool dispose)
         {
-            if (status == true)
-                PushbackUIHook?.Enable();
+            if (dispose)
+                PushbackUIHook?.Dispose();
             else
-                PushbackUIHook?.Disable();
+                if (status)
+                    PushbackUIHook?.Enable();
+                else
+                    PushbackUIHook?.Disable();
         }
         private void PushbackUIFn(UInt64 a, UInt64 b)
         {
@@ -1158,18 +1232,21 @@ namespace xivr
         private Hook<ScreenPointToRayDg> ScreenPointToRayHook = null;
 
         [HandleStatus("ScreenPointToRay")]
-        public void ScreenPointToRayStatus(bool status)
+        public void ScreenPointToRayStatus(bool status, bool dispose)
         {
-            if (status == true)
-                ScreenPointToRayHook?.Enable();
+            if (dispose)
+                ScreenPointToRayHook?.Dispose();
             else
-                ScreenPointToRayHook?.Disable();
+                if (status)
+                    ScreenPointToRayHook?.Enable();
+                else
+                    ScreenPointToRayHook?.Disable();
         }
         private Ray* ScreenPointToRayFn(RawGameCamera* gameCamera, Ray* ray, int mousePosX, int mousePosY)
         {
             if (hooksSet && enableVR)
             {
-                if (xivr_Ex.cfg!.data.motioncontrol)
+                if (Plugin.cfg!.data.motioncontrol)
                 {
                     Matrix4x4 rayPos = handBoneRay * curViewMatrixWithoutHMDI;
                     Vector3 frwdFar = new Vector3(rayPos.M31, rayPos.M32, rayPos.M33) * -1;
@@ -1197,19 +1274,22 @@ namespace xivr
         [Signature(Signatures.ScreenPointToRay1, DetourName = nameof(ScreenPointToRay1Fn))]
         private Hook<ScreenPointToRay1Dg> ScreenPointToRay1Hook = null;
 
-        [HandleStatus("ScreenPointToRay")]
-        public void ScreenPointToRay1Status(bool status)
+        [HandleStatus("ScreenPointToRay1")]
+        public void ScreenPointToRay1Status(bool status, bool dispose)
         {
-            if (status == true)
-                ScreenPointToRay1Hook?.Enable();
+            if (dispose)
+                ScreenPointToRay1Hook?.Dispose();
             else
-                ScreenPointToRay1Hook?.Disable();
+                if (status)
+                    ScreenPointToRay1Hook?.Enable();
+                else
+                    ScreenPointToRay1Hook?.Disable();
         }
         private void ScreenPointToRay1Fn(Ray* ray, float* mousePos)
         {
             if (hooksSet && enableVR)
             {
-                if (xivr_Ex.cfg!.data.motioncontrol)
+                if (Plugin.cfg!.data.motioncontrol)
                 {
                     Matrix4x4 rayPos = handBoneRay * curViewMatrixWithoutHMDI;
                     Vector3 frwdFar = new Vector3(rayPos.M31, rayPos.M32, rayPos.M33) * -1;
@@ -1237,12 +1317,15 @@ namespace xivr
         private Hook<MousePointScreenToClientDg> MousePointScreenToClientHook = null;
 
         [HandleStatus("MousePointScreenToClient")]
-        public void MousePointScreenToClientStatus(bool status)
+        public void MousePointScreenToClientStatus(bool status, bool dispose)
         {
-            if (status == true)
-                MousePointScreenToClientHook?.Enable();
+            if (dispose)
+                MousePointScreenToClientHook?.Dispose();
             else
-                MousePointScreenToClientHook?.Disable();
+                if (status)
+                    MousePointScreenToClientHook?.Enable();
+                else
+                    MousePointScreenToClientHook?.Disable();
         }
         private void MousePointScreenToClientFn(UInt64 frameworkInstance, Point* mousePos)
         {
@@ -1261,12 +1344,15 @@ namespace xivr
         private Hook<DisableCinemaBarsDg> DisableCinemaBarsHook = null;
 
         [HandleStatus("DisableCinemaBars")]
-        public void DisableCinemaBarsStatus(bool status)
+        public void DisableCinemaBarsStatus(bool status, bool dispose)
         {
-            if (status == true)
-                DisableCinemaBarsHook?.Enable();
+            if (dispose)
+                DisableCinemaBarsHook?.Dispose();
             else
-                DisableCinemaBarsHook?.Disable();
+                if (status)
+                    DisableCinemaBarsHook?.Enable();
+                else
+                    DisableCinemaBarsHook?.Disable();
         }
         private void DisableCinemaBarsFn(UInt64 a1)
         {
@@ -1284,12 +1370,15 @@ namespace xivr
         private Hook<OnRequestedUpdateDg>? OnRequestedUpdateHook = null;
 
         [HandleStatus("OnRequestedUpdate")]
-        public void OnRequestedUpdateStatus(bool status)
+        public void OnRequestedUpdateStatus(bool status, bool dispose)
         {
-            if (status == true)
-                OnRequestedUpdateHook?.Enable();
+            if (dispose)
+                OnRequestedUpdateHook?.Dispose();
             else
-                OnRequestedUpdateHook?.Disable();
+                if (status)
+                    OnRequestedUpdateHook?.Enable();
+                else
+                    OnRequestedUpdateHook?.Disable();
         }
 
         void OnRequestedUpdateFn(UInt64 a, UInt64 b, UInt64 c)
@@ -1316,12 +1405,15 @@ namespace xivr
         private Hook<DXGIPresentDg>? DXGIPresentHook = null;
 
         [HandleStatus("DXGIPresent")]
-        public void DXGIPresentStatus(bool status)
+        public void DXGIPresentStatus(bool status, bool dispose)
         {
-            if (status == true)
-                DXGIPresentHook?.Enable();
+            if (dispose)
+                DXGIPresentHook?.Dispose();
             else
-                DXGIPresentHook?.Disable();
+                if (status)
+                    DXGIPresentHook?.Enable();
+                else
+                    DXGIPresentHook?.Disable();
         }
 
         private unsafe void DXGIPresentFn(UInt64 a, UInt64 b)
@@ -1344,12 +1436,15 @@ namespace xivr
         private Hook<RenderThreadSetRenderTargetDg>? RenderThreadSetRenderTargetHook = null;
 
         [HandleStatus("RenderThreadSetRenderTarget")]
-        public void RenderThreadSetRenderTargetStatus(bool status)
+        public void RenderThreadSetRenderTargetStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RenderThreadSetRenderTargetHook?.Enable();
+            if (dispose)
+                RenderThreadSetRenderTargetHook?.Dispose();
             else
-                RenderThreadSetRenderTargetHook?.Disable();
+                if (status)
+                    RenderThreadSetRenderTargetHook?.Enable();
+                else
+                    RenderThreadSetRenderTargetHook?.Disable();
         }
 
         private void RenderThreadSetRenderTargetFn(UInt64 a, UInt64 b)
@@ -1373,12 +1468,15 @@ namespace xivr
         private Hook<CamManagerSetMatrixDg>? CamManagerSetMatrixHook = null;
 
         [HandleStatus("CamManagerSetMatrix")]
-        public void CamManagerSetMatrixStatus(bool status)
+        public void CamManagerSetMatrixStatus(bool status, bool dispose)
         {
-            if (status == true)
-                CamManagerSetMatrixHook?.Enable();
+            if (dispose)
+                CamManagerSetMatrixHook?.Dispose();
             else
-                CamManagerSetMatrixHook?.Disable();
+                if (status)
+                    CamManagerSetMatrixHook?.Enable();
+                else
+                    CamManagerSetMatrixHook?.Disable();
         }
 
         private void CamManagerSetMatrixFn(SceneCameraManager* camMngrInstance)
@@ -1403,12 +1501,15 @@ namespace xivr
         private Hook<CSUpdateConstBufDg>? CSUpdateConstBufHook = null;
 
         [HandleStatus("CSUpdateConstBuf")]
-        public void CSUpdateConstBufStatus(bool status)
+        public void CSUpdateConstBufStatus(bool status, bool dispose)
         {
-            if (status == true)
-                CSUpdateConstBufHook?.Enable();
+            if (dispose)
+                CSUpdateConstBufHook?.Dispose();
             else
-                CSUpdateConstBufHook?.Disable();
+                if (status)
+                    CSUpdateConstBufHook?.Enable();
+                else
+                    CSUpdateConstBufHook?.Disable();
         }
 
         private void CSUpdateConstBufFn(UInt64 a, UInt64 b)
@@ -1433,12 +1534,15 @@ namespace xivr
         private Hook<SetUIProjDg>? SetUIProjHook = null;
 
         [HandleStatus("SetUIProj")]
-        public void SetUIProjStatus(bool status)
+        public void SetUIProjStatus(bool status, bool dispose)
         {
-            if (status == true)
-                SetUIProjHook?.Enable();
+            if (dispose)
+                SetUIProjHook?.Dispose();
             else
-                SetUIProjHook?.Disable();
+                if (status)
+                    SetUIProjHook?.Enable();
+                else
+                    SetUIProjHook?.Disable();
         }
 
         private void SetUIProjFn(UInt64 a, UInt64 b)
@@ -1462,12 +1566,15 @@ namespace xivr
         private Hook<CalculateViewMatrixDg>? CalculateViewMatrixHook = null;
 
         [HandleStatus("CalculateViewMatrix")]
-        public void CalculateViewMatrixStatus(bool status)
+        public void CalculateViewMatrixStatus(bool status, bool dispose)
         {
-            if (status == true)
-                CalculateViewMatrixHook?.Enable();
+            if (dispose)
+                CalculateViewMatrixHook?.Dispose();
             else
-                CalculateViewMatrixHook?.Disable();
+                if (status)
+                    CalculateViewMatrixHook?.Enable();
+                else
+                    CalculateViewMatrixHook?.Disable();
         }
 
         //----
@@ -1481,7 +1588,7 @@ namespace xivr
                 //if (scCameraManager->CameraIndex == 0 && csCameraManager->ActiveCameraIndex == 0)
                 if (!inCutscene.Current)
                 {
-                    if (xivr_Ex.cfg!.data.ultrawideshadows == true)
+                    if (Plugin.cfg!.data.ultrawideshadows == true)
                         rawGameCamera->CurrentFoV = 2.54f; // ultra wide
                     else
                         rawGameCamera->CurrentFoV = 1.65f;
@@ -1492,7 +1599,7 @@ namespace xivr
                 Matrix4x4 horizonLockMatrix = Matrix4x4.Identity;
                 frfCalculateViewMatrix = true;
 
-                if (inCutscene.Current || gameMode.Current == CameraModes.ThirdPerson || (!xivr_Ex.cfg!.data.immersiveMovement && !isMounted))
+                if (inCutscene.Current || gameMode.Current == CameraModes.ThirdPerson || (!Plugin.cfg!.data.immersiveMovement && !isMounted))
                 {
                     if(gameMode.Current == CameraModes.ThirdPerson)
                         neckOffsetAvg.AddNew(rawGameCamera->Position.Y);
@@ -1505,16 +1612,16 @@ namespace xivr
                     rawGameCamera->Position = headBoneMatrix.Translation;
                     rawGameCamera->LookAt = rawGameCamera->Position + frontBackDiff;
                 }
-                //PluginLog.Log($"{}");
+                //Log!.Info($"{}");
                 rawGameCamera->ViewMatrix = Matrix4x4.Identity;
                 CalculateViewMatrixHook!.Original(rawGameCamera);
 
                 if (!forceFloatingScreen)
                 {
-                    PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+                    PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
                     if (player != null)
                     {
-                        if ((xivr_Ex.cfg!.data.horizonLock || gameMode.Current == CameraModes.FirstPerson))
+                        if ((Plugin.cfg!.data.horizonLock || gameMode.Current == CameraModes.FirstPerson))
                         {
                             horizonLockMatrix = Matrix4x4.CreateFromAxisAngle(new Vector3(1, 0, 0), rawGameCamera->CurrentVRotation);
                             rawGameCamera->LookAt.Y = rawGameCamera->Position.Y;
@@ -1538,9 +1645,9 @@ namespace xivr
                     Matrix4x4.Invert(curViewMatrixWithoutHMD, out curViewMatrixWithoutHMDI);
 
                     //curViewMatrix = rawGameCamera->ViewMatrix * hmdMatrix;
-                    //PluginLog.Log($"hmdMatrix: {rawGameCamera->X} {rawGameCamera->Y} {rawGameCamera->Z} | {rawGameCamera->ViewMatrix.M41}, {rawGameCamera->ViewMatrix.M42}, {rawGameCamera->ViewMatrix.M43} | {hmdMatrix.M41}, {hmdMatrix.M42},  {hmdMatrix.M43}");
+                    //Log!.Info($"hmdMatrix: {rawGameCamera->X} {rawGameCamera->Y} {rawGameCamera->Z} | {rawGameCamera->ViewMatrix.M41}, {rawGameCamera->ViewMatrix.M42}, {rawGameCamera->ViewMatrix.M43} | {hmdMatrix.M41}, {hmdMatrix.M42},  {hmdMatrix.M43}");
 
-                    if (xivr_Ex.cfg!.data.swapEyes)
+                    if (Plugin.cfg!.data.swapEyes)
                         rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD * hmdMatrixI * eyeOffsetMatrix[swapEyes[curEye]];
                     else
                         rawGameCamera->ViewMatrix = curViewMatrixWithoutHMD * hmdMatrixI * eyeOffsetMatrix[curEye];
@@ -1571,12 +1678,15 @@ namespace xivr
         private Hook<UpdateRotationDg>? UpdateRotationHook = null;
 
         [HandleStatus("UpdateRotation")]
-        public void UpdateRotationStatus(bool status)
+        public void UpdateRotationStatus(bool status, bool dispose)
         {
-            if (status == true)
-                UpdateRotationHook?.Enable();
+            if (dispose)
+                UpdateRotationHook?.Dispose();
             else
-                UpdateRotationHook?.Disable();
+                if (status)
+                    UpdateRotationHook?.Enable();
+                else
+                    UpdateRotationHook?.Disable();
         }
 
         private void UpdateRotationFn(GameCamera* gameCamera)
@@ -1585,9 +1695,9 @@ namespace xivr
             {
                 gameMode.Current = gameCamera->Camera.Mode;
 
-                if (xivr_Ex.cfg!.data.horizontalLock)
+                if (Plugin.cfg!.data.horizontalLock)
                     gameCamera->Camera.HRotationThisFrame2 = 0;
-                if (xivr_Ex.cfg!.data.verticalLock)
+                if (Plugin.cfg!.data.verticalLock)
                     gameCamera->Camera.VRotationThisFrame2 = 0;
 
                 gameCamera->Camera.HRotationThisFrame2 += rotateAmount.X;
@@ -1620,12 +1730,15 @@ namespace xivr
         private Hook<MakeProjectionMatrix2Dg>? MakeProjectionMatrix2Hook = null;
 
         [HandleStatus("MakeProjectionMatrix2")]
-        public void MakeProjectionMatrix2Status(bool status)
+        public void MakeProjectionMatrix2Status(bool status, bool dispose)
         {
-            if (status == true)
-                MakeProjectionMatrix2Hook?.Enable();
+            if (dispose)
+                MakeProjectionMatrix2Hook?.Dispose();
             else
-                MakeProjectionMatrix2Hook?.Disable();
+                if (status)
+                    MakeProjectionMatrix2Hook?.Enable();
+                else
+                    MakeProjectionMatrix2Hook?.Disable();
         }
 
         private Matrix4x4 MakeProjectionMatrix2Fn(Matrix4x4 projMatrix, float b, float c, float d, float e)
@@ -1638,7 +1751,7 @@ namespace xivr
                 curProjection = retVal;
             if (hooksSet && enableVR && overrideMatrix && !forceFloatingScreen)
             {
-                if (xivr_Ex.cfg!.data.swapEyes)
+                if (Plugin.cfg!.data.swapEyes)
                 {
                     gameProjectionMatrix[swapEyes[curEye]].M43 = retVal.M43;
                     retVal = gameProjectionMatrix[swapEyes[curEye]];
@@ -1661,12 +1774,15 @@ namespace xivr
         private Hook<NamePlateDrawDg>? NamePlateDrawHook = null;
 
         [HandleStatus("NamePlateDraw")]
-        public void NamePlateDrawStatus(bool status)
+        public void NamePlateDrawStatus(bool status, bool dispose)
         {
-            if (status == true)
-                NamePlateDrawHook?.Enable();
+            if (dispose)
+                NamePlateDrawHook?.Dispose();
             else
-                NamePlateDrawHook?.Disable();
+                if (status)
+                    NamePlateDrawHook?.Enable();
+                else
+                    NamePlateDrawHook?.Disable();
         }
 
         private void NamePlateDrawFn(AddonNamePlate* a)
@@ -1676,16 +1792,16 @@ namespace xivr
                 //----
                 // Disables the target arrow until it can be put in the world
                 //----
-                AtkUnitBase* targetAddon = (AtkUnitBase*)xivr_Ex.GameGui!.GetAddonByName("_TargetCursor", 1);
+                AtkUnitBase* targetAddon = (AtkUnitBase*)Plugin.GameGui!.GetAddonByName("_TargetCursor", 1);
                 if (targetAddon != null)
                 {
                     targetAddon->Alpha = 1;
-                    targetAddon->Hide(true);
+                    targetAddon->Hide(true, false, 0);
                     //targetAddon->RootNode->SetUseDepthBasedPriority(true);
                 }
 
                 fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
-                    VRCursor.SetupVRTargetCursor(pvrTargetCursor, xivr_Ex.cfg!.data.targetCursorSize);
+                    VRCursor.SetupVRTargetCursor(pvrTargetCursor, Plugin.cfg!.data.targetCursorSize);
 
                 for (byte i = 0; i < NamePlateCount; i++)
                 {
@@ -1702,14 +1818,14 @@ namespace xivr
                 }
 
                 NamePlateObject* selectedNamePlate = null;
-                var framework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+                var framework = Framework.Instance();
                 var ui3DModule = framework->GetUiModule()->GetUI3DModule();
 
                 for (int i = 0; i < ui3DModule->NamePlateObjectInfoCount; i++)
                 {
                     var objectInfo = ((UI3DModule.ObjectInfo**)ui3DModule->NamePlateObjectInfoPointerArray)[i];
 
-                    TargetSystem* targSys = (TargetSystem*)xivr_Ex.TargetManager!.Address;
+                    TargetSystem* targSys = (TargetSystem*)Plugin.TargetManager!.Address;
                     if (objectInfo->GameObject == targSys->Target)
                     {
                         selectedNamePlate = &a->NamePlateObjectArray[objectInfo->NamePlateIndex];
@@ -1719,7 +1835,7 @@ namespace xivr
 
                 fixed (AtkTextNode** pvrTargetCursor = &vrTargetCursor)
                 {
-                    VRCursor.UpdateVRCursorSize(pvrTargetCursor, xivr_Ex.cfg!.data.targetCursorSize);
+                    VRCursor.UpdateVRCursorSize(pvrTargetCursor, Plugin.cfg!.data.targetCursorSize);
                     VRCursor.SetVRCursor(pvrTargetCursor, selectedNamePlate);
                 }
             }
@@ -1736,23 +1852,26 @@ namespace xivr
         private Hook<LoadCharacterDg>? LoadCharacterHook = null;
 
         [HandleStatus("LoadCharacter")]
-        public void LoadCharacterStatus(bool status)
+        public void LoadCharacterStatus(bool status, bool dispose)
         {
-            if (status == true)
-                LoadCharacterHook?.Enable();
+            if (dispose)
+                LoadCharacterHook?.Dispose();
             else
-                LoadCharacterHook?.Disable();
+                if (status)
+                    LoadCharacterHook?.Enable();
+                else
+                    LoadCharacterHook?.Disable();
         }
 
         private UInt64 LoadCharacterFn(UInt64 a, UInt64 b, UInt64 c, UInt64 d, UInt64 e, UInt64 f)
         {
-            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+            PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
             if (player != null && (UInt64)player.Address == a)
             {
                 CharCustData* cData = (CharCustData*)c;
                 CharEquipData* eData = (CharEquipData*)d;
             }
-            //PluginLog.Log($"LoadCharacterFn {a:X} {b:X} {c:X} {d:X} {e:X} {f:X}");
+            //Log!.Info($"LoadCharacterFn {a:X} {b:X} {c:X} {d:X} {e:X} {f:X}");
             return LoadCharacterHook!.Original(a, b, c, d, e, f);
         }
 
@@ -1760,24 +1879,27 @@ namespace xivr
         //----
         // ChangeEquipment
         //----
-        private delegate void ChangeEquipmentDg(UInt64 address, CharEquipSlots index, CharEquipSlotData item);
+        private delegate void ChangeEquipmentDg(UInt64 address, CharEquipSlots index, CharEquipSlotData* item);
         [Signature(Signatures.ChangeEquipment, DetourName = nameof(ChangeEquipmentFn))]
         private Hook<ChangeEquipmentDg>? ChangeEquipmentHook = null;
 
         [HandleStatus("ChangeEquipment")]
-        public void ChangeEquipmentStatus(bool status)
+        public void ChangeEquipmentStatus(bool status, bool dispose)
         {
-            if (status == true)
-                ChangeEquipmentHook?.Enable();
+            if (dispose)
+                ChangeEquipmentHook?.Dispose();
             else
-                ChangeEquipmentHook?.Disable();
+                if (status)
+                    ChangeEquipmentHook?.Enable();
+                else
+                    ChangeEquipmentHook?.Disable();
         }
 
-        private void ChangeEquipmentFn(UInt64 address, CharEquipSlots index, CharEquipSlotData item)
+        private void ChangeEquipmentFn(UInt64 address, CharEquipSlots index, CharEquipSlotData* item)
         {
             if (hooksSet && enableVR)
             {
-                PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+                PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
                 if (player != null)
                 {
                     Character* bonedCharacter = (Character*)player.Address;
@@ -1787,12 +1909,12 @@ namespace xivr
                         if (equipOffset == address)
                         {
                             haveSavedEquipmentSet = true;
-                            currentEquipmentSet.Data[(int)index] = item.Data;
+                            currentEquipmentSet.Data[(int)index] = item->Data;
                         }
                     }
                 }
             }
-            //PluginLog.Log($"ChangeEquipmentFn {address:X} {index} {item.Id}, {item.Variant}, {item.Dye}");
+            //Plugin.Log!.Info($"ChangeEquipmentFn {address:X} {index} {item->Id}, {item->Variant}, {item->Dye}");
             ChangeEquipmentHook!.Original(address, index, item);
         }
 
@@ -1800,23 +1922,26 @@ namespace xivr
         // ChangeWeapon
         //----
         private delegate void ChangeWeaponDg(UInt64 address, CharWeaponSlots index, CharWeaponSlotData item, byte d, byte e, byte f, byte g);
-        [Signature(Signatures.ChangeWeapon, DetourName = nameof(ChangeWeaponFn))]
+        //[Signature(Signatures.ChangeWeapon, DetourName = nameof(ChangeWeaponFn))]
         private Hook<ChangeWeaponDg>? ChangeWeaponHook = null;
 
-        [HandleStatus("ChangeWeapon")]
-        public void ChangeWeaponStatus(bool status)
+        //[HandleStatus("ChangeWeapon")]
+        public void ChangeWeaponStatus(bool status, bool dispose)
         {
-            if (status == true)
-                ChangeWeaponHook?.Enable();
+            if (dispose)
+                ChangeWeaponHook?.Dispose();
             else
-                ChangeWeaponHook?.Disable();
+                if (status)
+                    ChangeWeaponHook?.Enable();
+                else
+                    ChangeWeaponHook?.Disable();
         }
 
         private void ChangeWeaponFn(UInt64 address, CharWeaponSlots index, CharWeaponSlotData item, byte d, byte e, byte f, byte g)
         {
             if (hooksSet && enableVR)
             {
-                PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+                PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
                 if (player != null)
                 {
                     Character* bonedCharacter = (Character*)player.Address;
@@ -1831,7 +1956,7 @@ namespace xivr
                     }
                 }
             }
-            //PluginLog.Log($"ChangeWeaponFn {address:X} {index} | {item.Type}, {item.Id}, {item.Variant}, {item.Dye} | {d}, {e}, {f}, {g}");
+            //Log!.Info($"ChangeWeaponFn {address:X} {index} | {item.Type}, {item.Id}, {item.Variant}, {item.Dye} | {d}, {e}, {f}, {g}");
             ChangeWeaponHook!.Original(address, index, item, d, e, f, g);
         }
 
@@ -1840,21 +1965,24 @@ namespace xivr
         // EquipGearsetInternal
         //----
         private delegate void EquipGearsetInternalDg(UInt64 address, int b, byte c);
-        [Signature(Signatures.EquipGearsetInternal, DetourName = nameof(EquipGearsetInternalFn))]
+        //[Signature(Signatures.EquipGearsetInternal, DetourName = nameof(EquipGearsetInternalFn))]
         private Hook<EquipGearsetInternalDg>? EquipGearsetInternalHook = null;
 
-        [HandleStatus("EquipGearsetInternal")]
-        public void EquipGearsetInternalStatus(bool status)
+        //[HandleStatus("EquipGearsetInternal")]
+        public void EquipGearsetInternalStatus(bool status, bool dispose)
         {
-            if (status == true)
-                EquipGearsetInternalHook?.Enable();
+            if (dispose)
+                EquipGearsetInternalHook?.Dispose();
             else
-                EquipGearsetInternalHook?.Disable();
+                if (status)
+                    EquipGearsetInternalHook?.Enable();
+                else
+                    EquipGearsetInternalHook?.Disable();
         }
 
         private void EquipGearsetInternalFn(UInt64 address, int b, byte c)
         {
-            //PluginLog.Log($"EquipGearsetInternalFn {address:X} {b} {c}");
+            //Log!.Info($"EquipGearsetInternalFn {address:X} {b} {c}");
             EquipGearsetInternalHook!.Original(address, b, c);
         }
 
@@ -1868,12 +1996,15 @@ namespace xivr
         private Hook<GetAnalogueValueDg>? GetAnalogueValueHook = null;
 
         [HandleStatus("GetAnalogueValue")]
-        public void GetAnalogueValueStatus(bool status)
+        public void GetAnalogueValueStatus(bool status, bool dispose)
         {
-            if (status == true)
-                GetAnalogueValueHook?.Enable();
+            if (dispose)
+                GetAnalogueValueHook?.Dispose();
             else
-                GetAnalogueValueHook?.Disable();
+                if (status)
+                    GetAnalogueValueHook?.Enable();
+                else
+                    GetAnalogueValueHook?.Disable();
         }
 
 
@@ -1902,27 +2033,27 @@ namespace xivr
                     case 4:
                         break;
                     case 5:
-                        //PluginLog.Log($"GetAnalogueValueFn: {retVal} {leftBumperValue}");
+                        //Log!.Info($"GetAnalogueValueFn: {retVal} {leftBumperValue}");
                         if (MathF.Abs(retVal) >= 0 && MathF.Abs(retVal) < 15) rightHorizontalCenter = true;
-                        if (xivr_Ex.cfg!.data.horizontalLock && MathF.Abs(leftBumperValue) < 0.5)
+                        if (Plugin.cfg!.data.horizontalLock && MathF.Abs(leftBumperValue) < 0.5)
                         {
                             if (MathF.Abs(retVal) > 75 && rightHorizontalCenter)
                             {
                                 rightHorizontalCenter = false;
-                                rotateAmount.X -= (xivr_Ex.cfg!.data.snapRotateAmountX * Deg2Rad) * MathF.Sign(retVal);
+                                rotateAmount.X -= (Plugin.cfg!.data.snapRotateAmountX * Deg2Rad) * MathF.Sign(retVal);
                             }
                             retVal = 0;
                         }
                         break;
                     case 6:
-                        //PluginLog.Log($"GetAnalogueValueFn: {retVal}");
+                        //Log!.Info($"GetAnalogueValueFn: {retVal}");
                         if (MathF.Abs(retVal) >= 0 && MathF.Abs(retVal) < 15) rightVerticalCenter = true;
-                        if (xivr_Ex.cfg!.data.verticalLock && MathF.Abs(leftBumperValue) < 0.5)
+                        if (Plugin.cfg!.data.verticalLock && MathF.Abs(leftBumperValue) < 0.5)
                         {
                             if (MathF.Abs(retVal) > 75 && rightVerticalCenter && gameMode.Current == CameraModes.ThirdPerson)
                             {
                                 rightVerticalCenter = false;
-                                rotateAmount.Y -= (xivr_Ex.cfg!.data.snapRotateAmountY * Deg2Rad) * MathF.Sign(retVal);
+                                rotateAmount.Y -= (Plugin.cfg!.data.snapRotateAmountY * Deg2Rad) * MathF.Sign(retVal);
                             }
                             retVal = 0;
                         }
@@ -1944,12 +2075,15 @@ namespace xivr
         private Hook<ControllerInputDg>? ControllerInputHook = null;
 
         [HandleStatus("ControllerInput")]
-        public void ControllerInputStatus(bool status)
+        public void ControllerInputStatus(bool status, bool dispose)
         {
-            if (status == true)
-                ControllerInputHook?.Enable();
+            if (dispose)
+                ControllerInputHook?.Dispose();
             else
-                ControllerInputHook?.Disable();
+                if (status)
+                    ControllerInputHook?.Enable();
+                else
+                    ControllerInputHook?.Disable();
         }
 
         float rightTriggerValue = 0;
@@ -1975,7 +2109,7 @@ namespace xivr
             leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
 
 
-            if (hooksSet && enableVR && xivr_Ex.cfg!.data.motioncontrol)
+            if (hooksSet && enableVR && Plugin.cfg!.data.motioncontrol)
             {
                 if (xboxStatus.dpad_up.active)
                     *(float*)(controllerAddress + (UInt64)(offsets->dpad_up * 4)) = xboxStatus.dpad_up.value;
@@ -2029,12 +2163,12 @@ namespace xivr
 
             bool doLocomotion = false;
             Vector3 angles = new Vector3();
-            if (xivr_Ex.cfg!.data.conloc)
+            if (Plugin.cfg!.data.conloc)
             {
                 angles = GetAngles(lhcPalmMatrix);
                 doLocomotion = true;
             }
-            else if (xivr_Ex.cfg!.data.hmdloc)
+            else if (Plugin.cfg!.data.hmdloc)
             {
                 angles = GetAngles(hmdMatrix);
                 doLocomotion = true;
@@ -2049,7 +2183,7 @@ namespace xivr
                 else if (left_right == 1) stickAngle = 90 * Deg2Rad;
                 stickAngle += angles.Y;
 
-                if(xivr_Ex.cfg!.data.vertloc)
+                if(Plugin.cfg!.data.vertloc)
                     movementManager->Ground.AscendDecendPitch = MathF.Min(1.5f, MathF.Max(-1.5f, (angles.X * 1.5f))) + 0.5f;
 
                 Vector2 newValue = new Vector2(MathF.Sin(stickAngle), MathF.Cos(stickAngle));
@@ -2057,7 +2191,7 @@ namespace xivr
                 newValue.X *= hyp;
                 newValue.Y *= hyp;
 
-                //PluginLog.Log($"{angles.Y * Rad2Deg} {newValue.Y} | {newValue.X} | {stickAngle * Rad2Deg}");
+                //Log!.Info($"{angles.Y * Rad2Deg} {newValue.Y} | {newValue.X} | {stickAngle * Rad2Deg}");
                 if (newValue.Y > 0)
                 {
                     (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) = MathF.Abs(newValue.Y);
@@ -2080,7 +2214,7 @@ namespace xivr
                     (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4))) = 0;
                 }
             }
-            if (hooksSet && enableVR && xivr_Ex.cfg!.data.motioncontrol)
+            if (hooksSet && enableVR && Plugin.cfg!.data.motioncontrol)
             {
                 leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
                 float curRightTriggerValue = *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4));
@@ -2196,7 +2330,7 @@ namespace xivr
                     *(float*)(controllerAddress + (UInt64)(offsets->right_stick_click * 4)) = 0;
                 }
 
-                if (isCharMake || xivr_Ex.cfg!.data.disableXboxShoulder)
+                if (isCharMake || Plugin.cfg!.data.disableXboxShoulder)
                 {
                     *(float*)(controllerAddress + (UInt64)(offsets->left_trigger * 4)) = 0;
                     *(float*)(controllerAddress + (UInt64)(offsets->right_trigger * 4)) = 0;
@@ -2874,11 +3008,11 @@ namespace xivr
         {
             if (digital.bActive)
             {
-                xivr_Ex.CommandManager!.ProcessCommand("/bgm");
-                xivr_Ex.CommandManager!.ProcessCommand("/soundeffects");
-                xivr_Ex.CommandManager!.ProcessCommand("/voice");
-                xivr_Ex.CommandManager!.ProcessCommand("/ambientsounds");
-                xivr_Ex.CommandManager!.ProcessCommand("/performsounds");
+                Plugin.CommandManager!.ProcessCommand("/bgm");
+                Plugin.CommandManager!.ProcessCommand("/soundeffects");
+                Plugin.CommandManager!.ProcessCommand("/voice");
+                Plugin.CommandManager!.ProcessCommand("/ambientsounds");
+                Plugin.CommandManager!.ProcessCommand("/performsounds");
             }
         }
 
@@ -2886,7 +3020,7 @@ namespace xivr
         public void inputWatchDalamud(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             if (digital.bActive)
-                xivr_Ex.CommandManager!.ProcessCommand("/xlplugins");
+                Plugin.CommandManager!.ProcessCommand("/xlplugins");
         }
 
         [HandleInputAttribute(ActionButtonLayout.watch_ui)]
@@ -2903,14 +3037,14 @@ namespace xivr
         public void inputWatchNone(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             if (digital.bActive)
-                xivr_Ex.CommandManager!.ProcessCommand("/chillframes toggle");
+                Plugin.CommandManager!.ProcessCommand("/chillframes toggle");
         }
 
         [HandleInputAttribute(ActionButtonLayout.watch_occlusion)]
         public void inputWatchOcclusion(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             if (digital.bActive)
-                xivr_Ex.CommandManager!.ProcessCommand("/xivr uidepth");
+                Plugin.CommandManager!.ProcessCommand("/xivr uidepth");
         }
 
         [HandleInputAttribute(ActionButtonLayout.watch_recenter)]
@@ -2922,14 +3056,14 @@ namespace xivr
         public void inputWatchWeapon(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             if (digital.bActive)
-                xivr_Ex.CommandManager!.ProcessCommand("/xivr weapon");
+                Plugin.CommandManager!.ProcessCommand("/xivr weapon");
         }
 
         [HandleInputAttribute(ActionButtonLayout.watch_xivr)]
         public void inputWatchXIVR(InputAnalogActionData analog, InputDigitalActionData digital)
         {
             if (digital.bActive)
-                xivr_Ex.CommandManager!.ProcessCommand("/xivr");
+                Plugin.CommandManager!.ProcessCommand("/xivr");
         }
 
 
@@ -2968,21 +3102,24 @@ namespace xivr
         // threadedLookAtParent
         //----
         private delegate void threadedLookAtParentDg(UInt64* a1, UInt64 a2, uint a3);
-        [Signature(Signatures.threadedLookAtParent, DetourName = nameof(threadedLookAtParentFn))]
+        //[Signature(Signatures.threadedLookAtParent, DetourName = nameof(threadedLookAtParentFn))]
         private Hook<threadedLookAtParentDg>? threadedLookAtParentHook = null;
 
         //[HandleStatus("threadedLookAtParent")]
-        public void threadedLookAtParentStatus(bool status)
+        public void threadedLookAtParentStatus(bool status, bool dispose)
         {
-            if (status == true)
-                threadedLookAtParentHook?.Enable();
+            if (dispose)
+                threadedLookAtParentHook?.Dispose();
             else
-                threadedLookAtParentHook?.Disable();
+                if (status)
+                    threadedLookAtParentHook?.Enable();
+                else
+                    threadedLookAtParentHook?.Disable();
         }
 
         private unsafe void threadedLookAtParentFn(UInt64* a1, UInt64 a2, uint a3)
         {
-            //PluginLog.Log("threadedLookAtParentFn");
+            //Log!.Info("threadedLookAtParentFn");
 
             threadedLookAtParentHook?.Original(a1, a2, a3);
         }
@@ -2991,16 +3128,19 @@ namespace xivr
         // lookAtIK
         //----
         private delegate byte* lookAtIKDg(byte* a1, float* a2, Vector4* targetPosition, float a4, Vector4* offsetHeadPosition, float* a6);
-        [Signature(Signatures.lookAtIK, DetourName = nameof(lookAtIKFn))]
+        //[Signature(Signatures.lookAtIK, DetourName = nameof(lookAtIKFn))]
         private Hook<lookAtIKDg>? lookAtIKHook = null;
 
         //[HandleStatus("lookAtIK")]
-        public void lookAtIKStatus(bool status)
+        public void lookAtIKStatus(bool status, bool dispose)
         {
-            if (status == true)
-                lookAtIKHook?.Enable();
+            if (dispose)
+                lookAtIKHook?.Dispose();
             else
-                lookAtIKHook?.Disable();
+                if (status)
+                    lookAtIKHook?.Enable();
+                else
+                    lookAtIKHook?.Disable();
         }
         private unsafe byte* lookAtIKFn(byte* a1, float* a2, Vector4* targetPosition, float a4, Vector4* offsetHeadPosition, float* a6)
         {
@@ -3011,16 +3151,16 @@ namespace xivr
             //headMatrix.M42 += 1.4f; //hmdMatrix.M42 + 1.4f;
             //headMatrix.M43 = hmdMatrix.M43;
 
-            //PluginLog.Log($"float1 {a2[0]} {a2[1]} {a2[2]} {a2[3]}");
-            //PluginLog.Log($"float1 {a2[4]} {a2[5]} {a2[6]} {a2[7]}");
-            //PluginLog.Log($"float1 {a2[8]} {a2[9]} {a2[10]} {a2[11]}");
-            //PluginLog.Log($"float1 {a2[12]} {a2[13]} {a2[14]} {a2[15]}");
+            //Log!.Info($"float1 {a2[0]} {a2[1]} {a2[2]} {a2[3]}");
+            //Log!.Info($"float1 {a2[4]} {a2[5]} {a2[6]} {a2[7]}");
+            //Log!.Info($"float1 {a2[8]} {a2[9]} {a2[10]} {a2[11]}");
+            //Log!.Info($"float1 {a2[12]} {a2[13]} {a2[14]} {a2[15]}");
 
-            //PluginLog.Log($"float2 {a3[0]} {a3[1]} {a3[2]} {a3[3]}");
-            //PluginLog.Log($"float2 {a3[4]} {a3[5]} {a3[6]} {a3[7]}");
-            //PluginLog.Log($"float2 {a3[8]} {a3[9]} {a3[10]} {a3[11]}");
-            //PluginLog.Log($"float2 {a3[12]} {a3[13]} {a3[14]} {a3[15]}");
-            //PluginLog.Log($"item {z.Translation.X},{z.Translation.Y},{z.Translation.Z},{z.Translation.W} | {z.Rotation.X}, {z.Rotation.Y}, {z.Rotation.Z}, {z.Rotation.W}");
+            //Log!.Info($"float2 {a3[0]} {a3[1]} {a3[2]} {a3[3]}");
+            //Log!.Info($"float2 {a3[4]} {a3[5]} {a3[6]} {a3[7]}");
+            //Log!.Info($"float2 {a3[8]} {a3[9]} {a3[10]} {a3[11]}");
+            //Log!.Info($"float2 {a3[12]} {a3[13]} {a3[14]} {a3[15]}");
+            //Log!.Info($"item {z.Translation.X},{z.Translation.Y},{z.Translation.Z},{z.Translation.W} | {z.Rotation.X}, {z.Rotation.Y}, {z.Rotation.Z}, {z.Rotation.W}");
             //extraChange += 0.001f;
             //Quaternion q = Quaternion.CreateFromYawPitchRoll(0, 0, xivr_Ex.cfg!.data.offsetAmountYFPS * Deg2Rad);
             //a2[0-3] rotation quat
@@ -3069,16 +3209,19 @@ namespace xivr
         private Hook<RenderSkeletonListDg>? RenderSkeletonListHook = null;
 
         [HandleStatus("RenderSkeletonList")]
-        public void RenderSkeletonListStatus(bool status)
+        public void RenderSkeletonListStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RenderSkeletonListHook?.Enable();
+            if (dispose)
+                RenderSkeletonListHook?.Dispose();
             else
-                RenderSkeletonListHook?.Disable();
+                if (status)
+                    RenderSkeletonListHook?.Enable();
+                else
+                    RenderSkeletonListHook?.Disable();
         }
         private unsafe void RenderSkeletonListFn(UInt64 RenderSkeletonLinkedList, float frameTiming)
         {
-            //PluginLog.Log($"RenderSkeletonListFn {(UInt64)RenderSkeletonLinkedList:x} {curEye}");
+            //Log!.Info($"RenderSkeletonListFn {(UInt64)RenderSkeletonLinkedList:x} {curEye}");
             RenderSkeletonListHook!.Original(RenderSkeletonLinkedList, frameTiming);
 
             Character* bonedCharacter = GetCharacterOrMouseover();
@@ -3099,7 +3242,7 @@ namespace xivr
 
             while (multiIK[curEye].Count > 0)
             {
-                //PluginLog.Log($"{(UInt64)skeleton:x} {(UInt64)itmSkeleton:x} {multiIK.Count}");
+                //Log!.Info($"{(UInt64)skeleton:x} {(UInt64)itmSkeleton:x} {multiIK.Count}");
                 stMultiIK ikElement = multiIK[curEye].Dequeue();
                 RunIKElement(&ikElement);
             }
@@ -3109,16 +3252,19 @@ namespace xivr
         // RenderSkeletonListSkeleton
         //----
         private delegate void RenderSkeletonListSkeletonDg(Skeleton* skeleton, float frameTiming);
-        [Signature(Signatures.RenderSkeletonListSkeleton, DetourName = nameof(RenderSkeletonListSkeletonFn))]
+        //[Signature(Signatures.RenderSkeletonListSkeleton, DetourName = nameof(RenderSkeletonListSkeletonFn))]
         private Hook<RenderSkeletonListSkeletonDg>? RenderSkeletonListSkeletonHook = null;
 
         //[HandleStatus("RenderSkeletonListSkeleton")]
-        public void RenderSkeletonListSkeletonStatus(bool status)
+        public void RenderSkeletonListSkeletonStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RenderSkeletonListSkeletonHook?.Enable();
+            if (dispose)
+                RenderSkeletonListSkeletonHook?.Dispose();
             else
-                RenderSkeletonListSkeletonHook?.Disable();
+                if (status)
+                    RenderSkeletonListSkeletonHook?.Enable();
+                else
+                    RenderSkeletonListSkeletonHook?.Disable();
         }
         private unsafe void RenderSkeletonListSkeletonFn(Skeleton* skeleton, float frameTiming)
         {
@@ -3135,12 +3281,15 @@ namespace xivr
         private Hook<RenderSkeletonListAnimationDg>? RenderSkeletonListAnimationHook = null;
 
         [HandleStatus("RenderSkeletonListAnimation")]
-        public void RenderSkeletonListAnimationStatus(bool status)
+        public void RenderSkeletonListAnimationStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RenderSkeletonListAnimationHook?.Enable();
+            if (dispose)
+                RenderSkeletonListAnimationHook?.Dispose();
             else
-                RenderSkeletonListAnimationHook?.Disable();
+                if (status)
+                    RenderSkeletonListAnimationHook?.Enable();
+                else
+                    RenderSkeletonListAnimationHook?.Disable();
         }
         private unsafe void RenderSkeletonListAnimationFn(UInt64 RenderSkeletonLinkedList, float frameTiming, UInt64 c)
         {
@@ -3151,7 +3300,7 @@ namespace xivr
             else
                 frameTiming = prevFrameTiming;
 
-            //PluginLog.Log($"RenderSkeletonListAnimationFn {(UInt64)RenderSkeletonLinkedList:x}");
+            //Log!.Info($"RenderSkeletonListAnimationFn {(UInt64)RenderSkeletonLinkedList:x}");
             RenderSkeletonListAnimationHook!.Original(RenderSkeletonLinkedList, frameTiming, c);
         }
 
@@ -3159,26 +3308,29 @@ namespace xivr
         // RenderSkeletonListSkeleton
         //----
         private delegate void RenderSkeletonListPartialSkeletonDg(PartialSkeleton* skeleton, float frameTiming);
-        [Signature(Signatures.RenderSkeletonListPartialSkeleton, DetourName = nameof(RenderSkeletonListPartialSkeletonFn))]
+        //[Signature(Signatures.RenderSkeletonListPartialSkeleton, DetourName = nameof(RenderSkeletonListPartialSkeletonFn))]
         private Hook<RenderSkeletonListPartialSkeletonDg>? RenderSkeletonListPartialSkeletonHook = null;
 
         //[HandleStatus("RenderSkeletonListPartialSkeleton")]
-        public void RenderSkeletonListPartialSkeletonStatus(bool status)
+        public void RenderSkeletonListPartialSkeletonStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RenderSkeletonListPartialSkeletonHook?.Enable();
+            if (dispose)
+                RenderSkeletonListPartialSkeletonHook?.Dispose();
             else
-                RenderSkeletonListPartialSkeletonHook?.Disable();
+                if (status)
+                    RenderSkeletonListPartialSkeletonHook?.Enable();
+                else
+                    RenderSkeletonListPartialSkeletonHook?.Disable();
         }
         private unsafe void RenderSkeletonListPartialSkeletonFn(PartialSkeleton* partialSkeleton, float frameTiming)
         {
-            //PluginLog.Log($"RenderSkeletonListPartialSkeletonFn {(UInt64)partialSkeleton:x}");
+            //Log!.Info($"RenderSkeletonListPartialSkeletonFn {(UInt64)partialSkeleton:x}");
             RenderSkeletonListPartialSkeletonHook!.Original(partialSkeleton, frameTiming);
         }
 
         private unsafe void RunIKElement(stMultiIK *ikElement)
         {
-            //PluginLog.Log($"remove {curEye} {multiIKEye.Count} {(UInt64)curIK.objAddress:x}");
+            //Log!.Info($"remove {curEye} {multiIKEye.Count} {(UInt64)curIK.objAddress:x}");
             if (ikElement->objCharacter == null)
                 return;
 
@@ -3282,13 +3434,13 @@ namespace xivr
                 if (p == 0 && csb.e_neck >= 0)
                 {
                     float diffHeadNeck = MathF.Abs(objPose->ModelPose[csb.e_neck].Translation.Y - objPose->ModelPose[csb.e_head].Translation.Y);
-                    //PluginLog.Log($"Neck Y {objPose->ModelPose[csb.e_neck].Translation.Y}");
+                    //Log!.Info($"Neck Y {objPose->ModelPose[csb.e_neck].Translation.Y}");
                     neckOffsetAvg.AddNew(objPose->ModelPose[csb.e_neck].Translation.Y + diffHeadNeck);
-                    //PluginLog.Log($"Neck {csb.e_neck} | {objPose->ModelPose[csb.e_neck].Translation.Y} Head {csb.e_head} | {objPose->ModelPose[csb.e_head].Translation.Y} = {diffHeadNeck}");
+                    //Log!.Info($"Neck {csb.e_neck} | {objPose->ModelPose[csb.e_neck].Translation.Y} Head {csb.e_head} | {objPose->ModelPose[csb.e_head].Translation.Y} = {diffHeadNeck}");
 
                     if (runIKHead)
                     {
-                        //PluginLog.Log($"ik Y {ikElement->avgHeadHeight}");
+                        //Log!.Info($"ik Y {ikElement->avgHeadHeight}");
                         ikSetupHead.m_endTargetMS.Y += neckOffsetAvg.Average + 0.25f;
                         twoBoneIKFn!(&lockItem, ikSetupHead, objPose);
                     }
@@ -3407,7 +3559,7 @@ namespace xivr
             float armLength = csb.armLength * skeleton->Transform.Scale.Y;
             hmdWorldScale = Matrix4x4.Identity;
             if (gameMode.Current == CameraModes.FirstPerson)
-                hmdWorldScale = Matrix4x4.CreateScale((armLength / 0.5f) * (xivr_Ex.cfg!.data.armMultiplier / 100.0f));
+                hmdWorldScale = Matrix4x4.CreateScale((armLength / 0.5f) * (Plugin.cfg!.data.armMultiplier / 100.0f));
             hkQsTransformf transform;
 
             //----
@@ -3415,7 +3567,7 @@ namespace xivr
             //----
             Vector3 anglesMount = new Vector3(0, 0, 0);
             Structures.Model* modelMount = (Structures.Model*)model->mountedObject;
-            if (modelMount != null && xivr_Ex.cfg!.data.motioncontrol)
+            if (modelMount != null && Plugin.cfg!.data.motioncontrol)
             {
                 Skeleton* skeletonMount = modelMount->skeleton;
                 if (skeletonMount != null)
@@ -3462,7 +3614,7 @@ namespace xivr
             scaleList.Add(new KeyValuePair<short, Vector3>(csb.e_sheathe_l, new Vector3(0.0001f, 0.0001f, 0.0001f)));
             scaleList.Add(new KeyValuePair<short, Vector3>(csb.e_sheathe_r, new Vector3(0.0001f, 0.0001f, 0.0001f)));
 
-            if (!xivr_Ex.cfg!.data.showWeaponInHand)
+            if (!Plugin.cfg!.data.showWeaponInHand)
             {
                 scaleList.Add(new KeyValuePair<short, Vector3>(csb.e_weapon_l, new Vector3(0.0001f, 0.0001f, 0.0001f)));
                 scaleList.Add(new KeyValuePair<short, Vector3>(csb.e_weapon_r, new Vector3(0.0001f, 0.0001f, 0.0001f)));
@@ -3481,7 +3633,7 @@ namespace xivr
                     // while immersive mode is off
                     // Set the reference pose for anything above the waste
                     //----
-                    if (csb.e_spine_a >= 0 && !xivr_Ex.cfg!.data.immersiveMovement && !isMounted && xivr_Ex.cfg!.data.motioncontrol)
+                    if (csb.e_spine_a >= 0 && !Plugin.cfg!.data.immersiveMovement && !isMounted && Plugin.cfg!.data.motioncontrol)
                     {
                         Vector3 angles = GetAngles(objPose->ModelPose[csb.e_abdomen].Rotation.Convert());
                         //angles = anglesMount;
@@ -3493,7 +3645,7 @@ namespace xivr
                         foreach (short child in children)
                             objPose->LocalPose[child] = hkaSkel->ReferencePose[child];
                     } 
-                    else if(isMounted && xivr_Ex.cfg!.data.motioncontrol)
+                    else if(isMounted && Plugin.cfg!.data.motioncontrol)
                     {
                         HashSet<short> children = csb.layout[csb.e_spine_c].Value;
                         foreach (short child in children)
@@ -3558,7 +3710,7 @@ namespace xivr
             Matrix4x4 lhcMatrixCXZ = convertXZ * lhcMatrix * convertXZ;
             Matrix4x4 rhcMatrixCXZ = convertXZ * rhcMatrix * convertXZ;
 
-            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+            PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
             //if (player != null && curEye == 0 && gameMode.Current == CameraModes.FirstPerson)
             //if (player != null && gameMode.Current == CameraModes.FirstPerson && !inCutscene.Current)
 
@@ -3653,12 +3805,12 @@ namespace xivr
                     short parentId = objPose->Skeleton->ParentIndices[i];
 
                     BoneList boneKey = BoneOutput.boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._unknown_);
-                    //PluginLog.Log($"{boneName} | {boneKey}");
+                    //Log!.Info($"{boneName} | {boneKey}");
                     if (boneKey == BoneList._unknown_)
                     {
                         if (!BoneOutput.reportedBones.ContainsKey(boneName))
                         {
-                            PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
+                            Plugin.Log!.Info($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
                             BoneOutput.reportedBones.Add(boneName, true);
                         }
                         boneName = "_unknown_";
@@ -3666,7 +3818,7 @@ namespace xivr
                     else
                         boneLayout[objPose64][boneKey] = i;
 
-                    //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
+                    //Log!.Info($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
 
                     if (parentId < 0)
                         boneArray[i] = new Bone(boneKey, i, parentId, null, objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);
@@ -3674,7 +3826,7 @@ namespace xivr
                         boneArray[i] = new Bone(boneKey, i, parentId, boneArray[parentId], objPose->LocalPose[i], objPose->Skeleton->ReferencePose[i]);                    
                     
 
-                    //PluginLog.Log($"Bone {i}/{objPose->LocalPose.Length} Name {(BoneListEn)boneKey} | {boneName}");
+                    //Log!.Info($"Bone {i}/{objPose->LocalPose.Length} Name {(BoneListEn)boneKey} | {boneName}");
 
                     //boneArray[i].updatePosition = true;
                     //boneArray[i].updateRotation = true;
@@ -3692,18 +3844,18 @@ namespace xivr
                         //boneArray[i].OutputToParent(false);
 
                         /*
-                        PluginLog.Log($"Bone {i}/{objPose->LocalPose.Length} Name {boneName}");
-                        PluginLog.Log($"{boneArray[i].transform.Rotation.X}, {boneArray[i].transform.Rotation.Y}, {boneArray[i].transform.Rotation.Z}, {boneArray[i].transform.Rotation.W}");
-                        PluginLog.Log($"{boneArray[i].transform.Translation.X}, {boneArray[i].transform.Translation.Y}, {boneArray[i].transform.Translation.Z}, {boneArray[i].transform.Translation.W}");
-                        PluginLog.Log($"-");
-                        PluginLog.Log($"{boneMatrix.M11}, {boneMatrix.M12}, {boneMatrix.M13}, {boneMatrix.M14}");
-                        PluginLog.Log($"{boneMatrix.M21}, {boneMatrix.M22}, {boneMatrix.M23}, {boneMatrix.M24}");
-                        PluginLog.Log($"{boneMatrix.M31}, {boneMatrix.M32}, {boneMatrix.M33}, {boneMatrix.M34}");
-                        PluginLog.Log($"{boneMatrix.M41}, {boneMatrix.M42}, {boneMatrix.M43}, {boneMatrix.M44}");
-                        PluginLog.Log($"-");
-                        PluginLog.Log($"{quatMat.X}, {quatMat.Y}, {quatMat.Z}, {quatMat.W}");
-                        PluginLog.Log($"{vecMat.X}, {vecMat.Y}, {vecMat.Z}, 0");
-                        PluginLog.Log($"-");
+                        Log!.Info($"Bone {i}/{objPose->LocalPose.Length} Name {boneName}");
+                        Log!.Info($"{boneArray[i].transform.Rotation.X}, {boneArray[i].transform.Rotation.Y}, {boneArray[i].transform.Rotation.Z}, {boneArray[i].transform.Rotation.W}");
+                        Log!.Info($"{boneArray[i].transform.Translation.X}, {boneArray[i].transform.Translation.Y}, {boneArray[i].transform.Translation.Z}, {boneArray[i].transform.Translation.W}");
+                        Log!.Info($"-");
+                        Log!.Info($"{boneMatrix.M11}, {boneMatrix.M12}, {boneMatrix.M13}, {boneMatrix.M14}");
+                        Log!.Info($"{boneMatrix.M21}, {boneMatrix.M22}, {boneMatrix.M23}, {boneMatrix.M24}");
+                        Log!.Info($"{boneMatrix.M31}, {boneMatrix.M32}, {boneMatrix.M33}, {boneMatrix.M34}");
+                        Log!.Info($"{boneMatrix.M41}, {boneMatrix.M42}, {boneMatrix.M43}, {boneMatrix.M44}");
+                        Log!.Info($"-");
+                        Log!.Info($"{quatMat.X}, {quatMat.Y}, {quatMat.Z}, {quatMat.W}");
+                        Log!.Info($"{vecMat.X}, {vecMat.Y}, {vecMat.Z}, 0");
+                        Log!.Info($"-");
                         */
                     }
                 }
@@ -3760,17 +3912,17 @@ namespace xivr
                 {
                     //Matrix4x4 boneMatI = boneArray[0].ConvertToLocal(rhcMatrix);
                     /*
-                    PluginLog.Log($"-");
-                    PluginLog.Log($"{rhcMatrix.M11}, {rhcMatrix.M12}, {rhcMatrix.M13}, {rhcMatrix.M14}");
-                    PluginLog.Log($"{rhcMatrix.M21}, {rhcMatrix.M22}, {rhcMatrix.M23}, {rhcMatrix.M24}");
-                    PluginLog.Log($"{rhcMatrix.M31}, {rhcMatrix.M32}, {rhcMatrix.M33}, {rhcMatrix.M34}");
-                    PluginLog.Log($"{rhcMatrix.M41}, {rhcMatrix.M42}, {rhcMatrix.M43}, {rhcMatrix.M44}");
-                    PluginLog.Log($"-");
-                    PluginLog.Log($"{boneMatI.M11}, {boneMatI.M12}, {boneMatI.M13}, {boneMatI.M14}");
-                    PluginLog.Log($"{boneMatI.M21}, {boneMatI.M22}, {boneMatI.M23}, {boneMatI.M24}");
-                    PluginLog.Log($"{boneMatI.M31}, {boneMatI.M32}, {boneMatI.M33}, {boneMatI.M34}");
-                    PluginLog.Log($"{boneMatI.M41}, {boneMatI.M42}, {boneMatI.M43}, {boneMatI.M44}");
-                    PluginLog.Log($"-");
+                    Log!.Info($"-");
+                    Log!.Info($"{rhcMatrix.M11}, {rhcMatrix.M12}, {rhcMatrix.M13}, {rhcMatrix.M14}");
+                    Log!.Info($"{rhcMatrix.M21}, {rhcMatrix.M22}, {rhcMatrix.M23}, {rhcMatrix.M24}");
+                    Log!.Info($"{rhcMatrix.M31}, {rhcMatrix.M32}, {rhcMatrix.M33}, {rhcMatrix.M34}");
+                    Log!.Info($"{rhcMatrix.M41}, {rhcMatrix.M42}, {rhcMatrix.M43}, {rhcMatrix.M44}");
+                    Log!.Info($"-");
+                    Log!.Info($"{boneMatI.M11}, {boneMatI.M12}, {boneMatI.M13}, {boneMatI.M14}");
+                    Log!.Info($"{boneMatI.M21}, {boneMatI.M22}, {boneMatI.M23}, {boneMatI.M24}");
+                    Log!.Info($"{boneMatI.M31}, {boneMatI.M32}, {boneMatI.M33}, {boneMatI.M34}");
+                    Log!.Info($"{boneMatI.M41}, {boneMatI.M42}, {boneMatI.M43}, {boneMatI.M44}");
+                    Log!.Info($"-");
                     */
 
                     outputBonesOnce = true;
@@ -3857,13 +4009,13 @@ namespace xivr
                         short weaponR = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_weapon_r, -1);
 
 
-                        //PluginLog.Log($"e_collarbone_l = {collarboneL} {ubb.e_collarbone_l.boneId}");
-                        //PluginLog.Log($"e_collarbone_r = {collarboneR} {ubb.e_collarbone_r.boneId}");
-                        //PluginLog.Log($"e_spine_a = {spineA} {ubb.e_spine_a.boneId}");
-                        //PluginLog.Log($"e_spine_b = {spineB} {ubb.e_spine_b.boneId}");
-                        //PluginLog.Log($"e_spine_c = {spineC} {ubb.e_spine_c.boneId}");
-                        //PluginLog.Log($"e_scabbard_l = {scabbardL} {ubb.e_scabbard_l.boneId}");
-                        //PluginLog.Log($"e_scabbard_r = {scabbardR} {ubb.e_scabbard_r.boneId}");
+                        //Log!.Info($"e_collarbone_l = {collarboneL} {ubb.e_collarbone_l.boneId}");
+                        //Log!.Info($"e_collarbone_r = {collarboneR} {ubb.e_collarbone_r.boneId}");
+                        //Log!.Info($"e_spine_a = {spineA} {ubb.e_spine_a.boneId}");
+                        //Log!.Info($"e_spine_b = {spineB} {ubb.e_spine_b.boneId}");
+                        //Log!.Info($"e_spine_c = {spineC} {ubb.e_spine_c.boneId}");
+                        //Log!.Info($"e_scabbard_l = {scabbardL} {ubb.e_scabbard_l.boneId}");
+                        //Log!.Info($"e_scabbard_r = {scabbardR} {ubb.e_scabbard_r.boneId}");
 
                         //short vr0l = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.vr0l, -1);
                         //short vr0r = boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.vr0r, -1);
@@ -3874,7 +4026,7 @@ namespace xivr
 
                         //DrawBoneRay(curSkeletonPosition, boneArray[headBone]);
 
-                        //PluginLog.Log($"{boneArray[rootBone].boneFinish.X} {boneArray[rootBone].boneFinish.Y} {boneArray[rootBone].boneFinish.Z} || {boneArray[rootBone].transform.Translation.X} {boneArray[rootBone].transform.Translation.Y} {boneArray[rootBone].transform.Translation.Z}");
+                        //Log!.Info($"{boneArray[rootBone].boneFinish.X} {boneArray[rootBone].boneFinish.Y} {boneArray[rootBone].boneFinish.Z} || {boneArray[rootBone].transform.Translation.X} {boneArray[rootBone].transform.Translation.Y} {boneArray[rootBone].transform.Translation.Z}");
 
                         //Quaternion q = Quaternion.CreateFromRotationMatrix(boneArray[clothBABone].boneMatrix);
                         //Vector3 v = boneArray[clothBABone].boneMatrix.Translation;
@@ -3887,8 +4039,8 @@ namespace xivr
                         //q = Quaternion.CreateFromRotationMatrix(itmI);
                         //v = itmI.Translation;
                         //Vector4 t = Vector4.Transform(Vector4.One, itmI);
-                        //PluginLog.Log($"A {boneArray[clothBABone].transform.Rotation.X} {boneArray[clothBABone].transform.Rotation.Y} {boneArray[clothBABone].transform.Rotation.Z} {boneArray[clothBABone].transform.Rotation.W} -- {boneArray[clothBABone].transform.Translation.X} {boneArray[clothBABone].transform.Translation.Y} {boneArray[clothBABone].transform.Translation.Z} {boneArray[clothBABone].transform.Translation.W}");
-                        //PluginLog.Log($"B {q.X} {q.Y} {q.Z} {q.W} -- {v.X} {v.Y} {v.Z} 0");
+                        //Log!.Info($"A {boneArray[clothBABone].transform.Rotation.X} {boneArray[clothBABone].transform.Rotation.Y} {boneArray[clothBABone].transform.Rotation.Z} {boneArray[clothBABone].transform.Rotation.W} -- {boneArray[clothBABone].transform.Translation.X} {boneArray[clothBABone].transform.Translation.Y} {boneArray[clothBABone].transform.Translation.Z} {boneArray[clothBABone].transform.Translation.W}");
+                        //Log!.Info($"B {q.X} {q.Y} {q.Z} {q.W} -- {v.X} {v.Y} {v.Z} 0");
 
                         //0x141733460 - hkQsTransformf.?setAxisAngle@hkQuaternionf@@QEAAXAEBVhkVector4f@@AEBVhkSimdFloat32@@@Z
                         //if (isMounted == false && abdomen >= 0)
@@ -3903,10 +4055,10 @@ namespace xivr
                             Matrix4x4 w = plrSkeletonPosition * a;
                             Matrix4x4 t = plrSkeletonPositionI * w;
                             */
-                            //PluginLog.Log($"{l.Translation.X} {l.Translation.Y} {l.Translation.Z} | {w.Translation.X} {w.Translation.Y} {w.Translation.Z} | {t.Translation.X} {t.Translation.Y} {t.Translation.Z}");
+                            //Log!.Info($"{l.Translation.X} {l.Translation.Y} {l.Translation.Z} | {w.Translation.X} {w.Translation.Y} {w.Translation.Z} | {t.Translation.X} {t.Translation.Y} {t.Translation.Z}");
 
                             //boneArray[rootBone].SetReference(true, true);
-                            if (!xivr_Ex.cfg!.data.immersiveMovement && !xivr_Ex.cfg!.data.immersiveFull && xivr_Ex.cfg!.data.motioncontrol && false)
+                            if (!Plugin.cfg!.data.immersiveMovement && !Plugin.cfg!.data.immersiveFull && Plugin.cfg!.data.motioncontrol && false)
                             {
                                 Vector3 angles = new Vector3(0, 0, 0);
                                 //if (xivr_Ex.cfg.data.conloc)
@@ -3933,11 +4085,11 @@ namespace xivr
                         if (sheatheL >= 0) boneArray[sheatheL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
                         if (sheatheR >= 0) boneArray[sheatheR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
 
-                        if (handL >= 0 && xivr_Ex.cfg!.data.motioncontrol)
+                        if (handL >= 0 && Plugin.cfg!.data.motioncontrol)
                         {
                             //armLength = boneArray[armL].transform.Translation.Convert().Length() + boneArray[forearmL].transform.Translation.Convert().Length();
                             //armLength *= plrSkeletonPosition.GetScale().Y;
-                            //PluginLog.Log($"armLen = {armLength} {plrSkeletonPosition.GetScale()}");
+                            //Log!.Info($"armLen = {armLength} {plrSkeletonPosition.GetScale()}");
 
                             //boneArray[armL].SetReference(false, true);
                             //boneArray[armL].transform.Rotation = Quaternion.Identity.Convert();// Quaternion.CreateFromYawPitchRoll(-90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
@@ -4107,7 +4259,7 @@ namespace xivr
                             boneArray[handL].setUpdates(true, true, true, true);
 
                         }
-                        if (handR >= 0 && xivr_Ex.cfg!.data.motioncontrol)
+                        if (handR >= 0 && Plugin.cfg!.data.motioncontrol)
                         {
                             //boneArray[armR].SetReference(false, true);
                             //boneArray[armR].transform.Rotation = Quaternion.Identity.Convert();//Quaternion.CreateFromYawPitchRoll(-90 * Deg2Rad, 180 * Deg2Rad, 90 * Deg2Rad).Convert();
@@ -4254,7 +4406,7 @@ namespace xivr
                             fingers.Add(new Tuple<short, Bone>(boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_pinky_a_r, -1), handArray[10]));
                             //fingers.Add(new Tuple<short, Bone>(boneLayout[objPose64].GetValueOrDefault<BoneList, short>((BoneList)BoneListEn.e_finger_pinky_b_r, -1), handArray[11]));
 
-                            Matrix4x4 convert = Matrix4x4.CreateFromYawPitchRoll(xivr_Ex.cfg!.data.offsetAmountX * Deg2Rad, xivr_Ex.cfg!.data.offsetAmountY * Deg2Rad, xivr_Ex.cfg!.data.offsetAmountZ * Deg2Rad);
+                            Matrix4x4 convert = Matrix4x4.CreateFromYawPitchRoll(Plugin.cfg!.data.offsetAmountX * Deg2Rad, Plugin.cfg!.data.offsetAmountY * Deg2Rad, Plugin.cfg!.data.offsetAmountZ * Deg2Rad);
                             foreach (Tuple<short, Bone> item in fingers)
                             {
                                 //boneArray[item.Item1].boneMatrix = convert;// * boneArray[item.Item1].boneMatrix;// item.Item2.boneMatrix;
@@ -4262,7 +4414,7 @@ namespace xivr
                                 //boneArray[item.Item1].setLocal(false);
                                 //Vector3 anglesA = boneArray[item.Item1].ToEulerAngles(boneArray[item.Item1].transform.Rotation);
                                 //Vector3 anglesB = item.Item2.ToEulerAngles(item.Item2.transform.Rotation);
-                                //PluginLog.Log($"{(BoneListEn)item.Item1} - {item.Item1} | {anglesA} | {anglesB}");
+                                //Log!.Info($"{(BoneListEn)item.Item1} - {item.Item1} | {anglesA} | {anglesB}");
 
                                 //boneArray[item.Item1].transform.Rotation = Quaternion.Identity.Convert();
                                 //boneArray[item.Item1].transform.Rotation = item.Item2.transform.Rotation;
@@ -4319,13 +4471,13 @@ namespace xivr
                             boneArray[fingers[4].Item1].SetTransformFromWorldBase();
                             boneArray[fingers[5].Item1].boneMatrix = handArray[12].boneMatrix;
                             boneArray[fingers[5].Item1].SetTransformFromWorldBase();
-                            //PluginLog.Log($"{lHand.thumb0Metacarpal.quat.x} {lHand.thumb0Metacarpal.quat.y} {lHand.thumb0Metacarpal.quat.z} {lHand.thumb0Metacarpal.quat.w} | {lHand.thumb2Middle.quat.x} {lHand.thumb2Middle.quat.y} {lHand.thumb2Middle.quat.z} {lHand.thumb2Middle.quat.w}");
+                            //Log!.Info($"{lHand.thumb0Metacarpal.quat.x} {lHand.thumb0Metacarpal.quat.y} {lHand.thumb0Metacarpal.quat.z} {lHand.thumb0Metacarpal.quat.w} | {lHand.thumb2Middle.quat.x} {lHand.thumb2Middle.quat.y} {lHand.thumb2Middle.quat.z} {lHand.thumb2Middle.quat.w}");
                             */
 
                         }
-                        if (weaponL >= 0 && weaponR >= 0 && xivr_Ex.cfg!.data.motioncontrol)
+                        if (weaponL >= 0 && weaponR >= 0 && Plugin.cfg!.data.motioncontrol)
                         {
-                            if (!xivr_Ex.cfg!.data.showWeaponInHand)
+                            if (!Plugin.cfg!.data.showWeaponInHand)
                             {
                                 boneArray[weaponL].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
                                 boneArray[weaponR].SetScale(new Vector3(0.0001f, 0.0001f, 0.0001f));
@@ -4359,7 +4511,7 @@ namespace xivr
                 objSkeletonPosition.Translation = skeleton->Transform.Position;
                 objSkeletonPosition.SetScale(skeleton->Transform.Scale);
                 Matrix4x4.Invert(objSkeletonPosition, out Matrix4x4 objSkeletonPositionI);
-                //PluginLog.Log($"{objSkeletonPosition.Translation} {objSkeletonPositionI.Translation}");
+                //Log!.Info($"{objSkeletonPosition.Translation} {objSkeletonPositionI.Translation}");
 
                 for (ushort p = 0; p < skeleton->PartialSkeletonCount; p++)
                 {
@@ -4381,12 +4533,12 @@ namespace xivr
                         short parentId = objPose->Skeleton->ParentIndices[j];
 
                         BoneList boneKey = BoneOutput.boneNameToEnum.GetValueOrDefault<string, BoneList>(boneName, BoneList._unknown_);
-                        //PluginLog.Log($"{boneName} | {boneKey}");
+                        //Log!.Info($"{boneName} | {boneKey}");
                         if (boneKey == BoneList._unknown_)
                         {
                             if (!BoneOutput.reportedBones.ContainsKey(boneName))
                             {
-                                PluginLog.Log($"{p} {objPose64:X} {j} : Error finding bone {boneName}");
+                                Log!.Info($"{p} {objPose64:X} {j} : Error finding bone {boneName}");
                                 BoneOutput.reportedBones.Add(boneName, true);
                             }
                             boneName = "_unknown_";
@@ -4394,7 +4546,7 @@ namespace xivr
                         else
                             boneLayout[objPose64][boneKey] = j;
 
-                        //PluginLog.Log($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
+                        //Log!.Info($"{p} {(UInt64)objPose:X} {i} : {boneName} {boneKey} {parentId}");
 
                         if (parentId < 0)
                             boneArray[j] = new Bone(boneKey, j, parentId, null, objPose->LocalPose[j], objPose->Skeleton->ReferencePose[j]);
@@ -4404,7 +4556,7 @@ namespace xivr
                         if (boneName == "iv_ochinko_f")
                         {
                             boneArray[j].boneMatrix = vr0rMatrix * (plrSkeletonPosition - objSkeletonPosition);
-                            //PluginLog.Log($"{plrSkeletonPosition.Translation} - {objSkeletonPosition.Translation} = {boneArray[j].boneMatrix.Translation}");
+                            //Log!.Info($"{plrSkeletonPosition.Translation} - {objSkeletonPosition.Translation} = {boneArray[j].boneMatrix.Translation}");
                             boneArray[j].SetWorldFromBoneMatrix();
                             boneArray[j].setLocal(false, false, true);
                             boneArray[j].setUpdates(true, true, true);
@@ -4479,7 +4631,7 @@ namespace xivr
 
                         if (bridge >= 0)
                         {
-                            if (xivr_Ex.cfg!.data.immersiveFull || xivr_Ex.cfg!.data.immersiveMovement || isMounted)
+                            if (Plugin.cfg!.data.immersiveFull || Plugin.cfg!.data.immersiveMovement || isMounted)
                             {
                                 //Matrix4x4 thmdMatrix = hmdMatrix * hmdFlip * headBoneMatrix * curViewMatrixWithoutHMD;
                                 //Matrix4x4 thmdMatrix = headBoneMatrix[curEye];// * curViewMatrixWithoutHMD;// * hmdFlip * headBoneMatrix * curViewMatrixWithoutHMD;
@@ -4539,18 +4691,21 @@ namespace xivr
         private Hook<RunGameTasksDg>? RunGameTasksHook = null;
 
         [HandleStatus("RunGameTasks")]
-        public void RunGameTasksStatus(bool status)
+        public void RunGameTasksStatus(bool status, bool dispose)
         {
-            if (status == true)
-                RunGameTasksHook?.Enable();
+            if (dispose)
+                RunGameTasksHook?.Dispose();
             else
-                RunGameTasksHook?.Disable();
+                if (status)
+                    RunGameTasksHook?.Enable();
+                else
+                    RunGameTasksHook?.Disable();
         }
 
         public void RunGameTasksFn(UInt64 a, float* frameTiming)
         {
             //*frameTiming = 0;
-            //PluginLog.Log($"RunGameTasksFn Start {curEye} | {a:x} {*frameTiming}");
+            //Log!.Info($"RunGameTasksFn Start {curEye} | {a:x} {*frameTiming}");
             RunUpdate();
             if (hooksSet && enableVR)
             {
@@ -4582,12 +4737,15 @@ namespace xivr
         private Hook<FrameworkTickDg>? FrameworkTickHook = null;
 
         [HandleStatus("FrameworkTick")]
-        public void FrameworkTickStatus(bool status)
+        public void FrameworkTickStatus(bool status, bool dispose)
         {
-            if (status == true)
-                FrameworkTickHook?.Enable();
+            if (dispose)
+                FrameworkTickHook?.Dispose();
             else
-                FrameworkTickHook?.Disable();
+                if (status)
+                    FrameworkTickHook?.Enable();
+                else
+                    FrameworkTickHook?.Disable();
         }
 
         public UInt64 FrameworkTickFn(Framework* FrameworkInstance)
@@ -4595,7 +4753,7 @@ namespace xivr
             if (hooksSet && enableVR)
             {
                 //*(float*)(a + 0x16B8) = 0;
-                //PluginLog.Log($"{(UInt64)FrameworkInstance:x} {((UInt64)FrameworkInstance + 0x16C0):x} {*(float*)(FrameworkInstance + 0x16C0)}");
+                //Log!.Info($"{(UInt64)FrameworkInstance:x} {((UInt64)FrameworkInstance + 0x16C0):x} {*(float*)(FrameworkInstance + 0x16C0)}");
                 GetMultiplayerIKData();
                 //ShowBoneLayout();
                 
@@ -4621,7 +4779,7 @@ namespace xivr
 
         private Character* GetCharacterOrMouseover(byte charFrom = 3)
         {
-            PlayerCharacter? player = xivr_Ex.ClientState!.LocalPlayer;
+            PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
             UInt64 selectMouseOver = *(UInt64*)selectScreenMouseOver;
 
             if (player == null && selectMouseOver == 0)
@@ -4651,35 +4809,23 @@ namespace xivr
                 if (model == null)
                     return;
 
-                if (model->CullType == ModelCullTypes.InsideCamera && (byte)character->GameObject.TargetableStatus == 255)
+                if (model->CullType == ModelCullTypes.InsideCamera && ((byte)character->GameObject.TargetableStatus & 2) == 2)
                     model->CullType = ModelCullTypes.Visible;
 
                 DrawDataContainer* drawData = &character->DrawData;
                 if (drawData != null && !drawData->IsWeaponHidden)
                 {
-                    UInt64 mhOffset = (UInt64)(&drawData->MainHand);
-                    if (mhOffset != 0)
-                    {
-                        Structures.Model* mhWeap = *(Structures.Model**)(mhOffset + 0x8);
-                        if (mhWeap != null)
-                            mhWeap->CullType = ModelCullTypes.Visible;
-                    }
+                    Structures.Model* mhWeap = (Structures.Model*)drawData->Weapon(DrawDataContainer.WeaponSlot.MainHand).DrawObject;
+                    if (mhWeap != null)
+                        mhWeap->CullType = ModelCullTypes.Visible;
 
-                    UInt64 ohOffset = (UInt64)(&drawData->OffHand);
-                    if (ohOffset != 0)
-                    {
-                        Structures.Model* ohWeap = *(Structures.Model**)(ohOffset + 0x8);
-                        if (ohWeap != null)
-                            ohWeap->CullType = ModelCullTypes.Visible;
-                    }
+                    Structures.Model* ohWeap = (Structures.Model*)drawData->Weapon(DrawDataContainer.WeaponSlot.OffHand).DrawObject;
+                    if (ohWeap != null)
+                        ohWeap->CullType = ModelCullTypes.Visible;
 
-                    UInt64 fOffset = (UInt64)(&drawData->UnkF0);
-                    if (fOffset != 0)
-                    {
-                        Structures.Model* fWeap = *(Structures.Model**)(fOffset + 0x8);
-                        if (fWeap != null)
-                            fWeap->CullType = ModelCullTypes.Visible;
-                    }
+                    Structures.Model* fWeap = (Structures.Model*)drawData->Weapon(DrawDataContainer.WeaponSlot.Unk).DrawObject;
+                    if (fWeap != null)
+                        fWeap->CullType = ModelCullTypes.Visible;
                 }
 
                 Structures.Model* mount = (Structures.Model*)model->mountedObject;
@@ -4711,9 +4857,9 @@ namespace xivr
             if (character != null && character != targetSystem->ObjectFilterArray0[0])
                 CheckVisibilityInner(character);
 
-            for (int i = 0; i < xivr_Ex.PartyList!.Length; i++)
+            for (int i = 0; i < Plugin.PartyList!.Length; i++)
             {
-                Dalamud.Game.ClientState.Objects.Types.GameObject partyMember = xivr_Ex.PartyList[i]!.GameObject!;
+                Dalamud.Game.ClientState.Objects.Types.GameObject partyMember = Plugin.PartyList[i]!.GameObject!;
                 if (partyMember != null)
                 {
                     Character* partyCharacter = (Character*)partyMember.Address;
@@ -4753,14 +4899,14 @@ namespace xivr
                     if (!commonBones.ContainsKey((UInt64)hkaSkel))
                     {
                         commonBones.Add((UInt64)hkaSkel, new stCommonSkelBoneList(skeleton));
-                        PluginLog.Log($"commonBoneCount {commonBones.Count} {commonBones[(UInt64)hkaSkel].armLength}");
+                        Plugin.Log!.Info($"commonBoneCount {commonBones.Count} {commonBones[(UInt64)hkaSkel].armLength}");
                     }
             }
 
             float armMultiplier = 100.0f;
             if (gameMode.Current == CameraModes.FirstPerson)
-                armMultiplier = xivr_Ex.cfg!.data.armMultiplier;
-            bool motionControls = xivr_Ex.cfg!.data.motioncontrol;
+                armMultiplier = Plugin.cfg!.data.armMultiplier;
+            bool motionControls = Plugin.cfg!.data.motioncontrol;
 
             multiIK[0].Enqueue(new stMultiIK(
                 character->CurrentWorld, 

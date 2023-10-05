@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.Interop;
 using FFXIVClientStructs.Interop.Attributes;
 
@@ -12,7 +12,14 @@ namespace xivr.Structures
     {
         public static class Addresses
         {
+            public static readonly Address GetCharaViewTexture = new Address("RenderTargetManager.GetCharaViewTexture", "48 8B 05 ?? ?? ?? ?? 8B CA 48 8B 84 C8 ?? ?? ??", new ulong[2] { 10016005571272346440uL, 861217179850uL }, new ulong[2] { 18374686479688400895uL, 1099511627775uL }, (nuint)0u);
+
             public static readonly Address Instance = new StaticAddress("RenderTargetManager.Instance", "48 8B 0D ?? ?? ?? ?? 48 8B B1 ?? ?? ?? ?? ?? ??", new ulong[2] { 5188146770731699016uL, 45451uL }, new ulong[2] { 18374686479688400895uL, 65535uL }, (nuint)0u, 3);
+        }
+
+        public static class MemberFunctionPointers
+        {
+            public unsafe static delegate* unmanaged[Stdcall]<RenderTargetManager*, uint, Texture*> GetCharaViewTexture => (delegate* unmanaged[Stdcall]<RenderTargetManager*, uint, Texture*>)Addresses.GetCharaViewTexture.Value;
         }
 
         public static class StaticAddressPointers
@@ -107,6 +114,20 @@ namespace xivr.Structures
             }
 
             return *StaticAddressPointers.ppInstance;
+        }
+
+        [MemberFunction("48 8B 05 ?? ?? ?? ?? 8B CA 48 8B 84 C8")]
+        public unsafe Texture* GetCharaViewTexture(uint clientObjectIndex)
+        {
+            if (MemberFunctionPointers.GetCharaViewTexture == (delegate* unmanaged[Stdcall]<RenderTargetManager*, uint, Texture*>)null)
+            {
+                throw new InvalidOperationException("Function pointer for RenderTargetManager.GetCharaViewTexture is null. The resolver was either uninitialized or failed to resolve address with signature 48 8B 05 ?? ?? ?? ?? 8B CA 48 8B 84 C8 ?? ?? ??.");
+            }
+
+            fixed (RenderTargetManager* ptr = &this)
+            {
+                return MemberFunctionPointers.GetCharaViewTexture(ptr, clientObjectIndex);
+            }
         }
     }
 }

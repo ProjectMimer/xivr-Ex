@@ -147,13 +147,13 @@ namespace xivr.Structures
             /*
             foreach (KeyValuePair<short, KeyValuePair<short, HashSet<short>>> item in layout)
             {
-                PluginLog.Log($"parent {item.Value.Key} item {item.Key} {hkaSkel->Bones[item.Key].Name.String} children {item.Value.Value.Count}");
+                Log!.Info($"parent {item.Value.Key} item {item.Key} {hkaSkel->Bones[item.Key].Name.String} children {item.Value.Value.Count}");
                 string numbers = "";
                 foreach (short innerItem in item.Value.Value)
                 {
                     numbers += ", " + hkaSkel->Bones[innerItem].Name.String;
                 }
-                PluginLog.Log(numbers);
+                Log!.Info(numbers);
             }
             */
         }
@@ -422,7 +422,7 @@ namespace xivr.Structures
 
             Quaternion q = Quaternion.CreateFromYawPitchRoll(yaw, pitch, roll);
             string spacer = new String(' ', indent * 2);
-            PluginLog.Log($"{spacer} {parentId} {id}| {(BoneListEn)boneKey} | {transform.Translation.X} {transform.Translation.Y} {transform.Translation.Z} | {pitch * Rad2Deg} {yaw * Rad2Deg} {roll * Rad2Deg} | {transform.Rotation.X} {transform.Rotation.Y} {transform.Rotation.Z} {transform.Rotation.W} | {q.X} {q.Y} {q.Z} {q.W}");
+            Plugin.Log!.Info($"{spacer} {parentId} {id}| {(BoneListEn)boneKey} | {transform.Translation.X} {transform.Translation.Y} {transform.Translation.Z} | {pitch * Rad2Deg} {yaw * Rad2Deg} {roll * Rad2Deg} | {transform.Rotation.X} {transform.Rotation.Y} {transform.Rotation.Z} {transform.Rotation.W} | {q.X} {q.Y} {q.Z} {q.W}");
             if (runChild == true)
                 foreach (KeyValuePair<int, Bone> child in children)
                     child.Value.Output(indent + 1, runChild);
@@ -438,12 +438,12 @@ namespace xivr.Structures
             Quaternion qV = FromToRotation(boneStart, boneFinish);
             ToEulerAngles(qV, out float pitchV, out float yawV, out float rollV);
 
-            PluginLog.Log($"-{MathF.Round(pitchV * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(yawV * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(rollV * Rad2Deg, 5).ToString("0.00000")}");
-            PluginLog.Log($"{parentId} | {(BoneListEn)boneKey} | worldBase: {MathF.Round(anglesR.X * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesR.Y * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesR.Z * Rad2Deg, 5).ToString("0.00000")} | {MathF.Round(anglesI.X * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesI.Y * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesI.Z * Rad2Deg, 5).ToString("0.00000")}");
-            PluginLog.Log($"Start: {MathF.Round(boneStart.X, 5).ToString("0.00000")} {MathF.Round(boneStart.Y, 5).ToString("0.00000")} {MathF.Round(boneStart.Z, 5).ToString("0.00000")} | Finish: {MathF.Round(boneFinish.X, 5).ToString("0.00000")} {MathF.Round(boneFinish.Y, 5).ToString("0.00000")} {MathF.Round(boneFinish.Z, 5).ToString("0.00000")}");
-            PluginLog.Log($"{MathF.Round(worldBase.Translation.X, 5).ToString("0.00000")} {MathF.Round(worldBase.Translation.Y, 5).ToString("0.00000")} {MathF.Round(worldBase.Translation.Z, 5).ToString("0.00000")} | {MathF.Round(worldBase.Rotation.X, 5).ToString("0.00000")} {MathF.Round(worldBase.Rotation.Y, 5).ToString("0.00000")} {MathF.Round(worldBase.Rotation.Z, 5).ToString("0.00000")} {MathF.Round(worldBase.Rotation.W, 5).ToString("0.00000")}");
-            PluginLog.Log($"{MathF.Round(transform.Translation.X, 5).ToString("0.00000")} {MathF.Round(transform.Translation.Y, 5).ToString("0.00000")} {MathF.Round(transform.Translation.Z, 5).ToString("0.00000")} | {MathF.Round(transform.Rotation.X, 5).ToString("0.00000")} {MathF.Round(transform.Rotation.Y, 5).ToString("0.00000")} {MathF.Round(transform.Rotation.Z, 5).ToString("0.00000")} {MathF.Round(transform.Rotation.W, 5).ToString("0.00000")} | {MathF.Round(pitch * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(yaw * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(roll * Rad2Deg, 5).ToString("0.00000")}");
-            PluginLog.Log($"-");
+            Plugin.Log!.Info($"-{MathF.Round(pitchV * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(yawV * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(rollV * Rad2Deg, 5).ToString("0.00000")}");
+            Plugin.Log!.Info($"{parentId} | {(BoneListEn)boneKey} | worldBase: {MathF.Round(anglesR.X * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesR.Y * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesR.Z * Rad2Deg, 5).ToString("0.00000")} | {MathF.Round(anglesI.X * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesI.Y * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(anglesI.Z * Rad2Deg, 5).ToString("0.00000")}");
+            Plugin.Log!.Info($"Start: {MathF.Round(boneStart.X, 5).ToString("0.00000")} {MathF.Round(boneStart.Y, 5).ToString("0.00000")} {MathF.Round(boneStart.Z, 5).ToString("0.00000")} | Finish: {MathF.Round(boneFinish.X, 5).ToString("0.00000")} {MathF.Round(boneFinish.Y, 5).ToString("0.00000")} {MathF.Round(boneFinish.Z, 5).ToString("0.00000")}");
+            Plugin.Log!.Info($"{MathF.Round(worldBase.Translation.X, 5).ToString("0.00000")} {MathF.Round(worldBase.Translation.Y, 5).ToString("0.00000")} {MathF.Round(worldBase.Translation.Z, 5).ToString("0.00000")} | {MathF.Round(worldBase.Rotation.X, 5).ToString("0.00000")} {MathF.Round(worldBase.Rotation.Y, 5).ToString("0.00000")} {MathF.Round(worldBase.Rotation.Z, 5).ToString("0.00000")} {MathF.Round(worldBase.Rotation.W, 5).ToString("0.00000")}");
+            Plugin.Log!.Info($"{MathF.Round(transform.Translation.X, 5).ToString("0.00000")} {MathF.Round(transform.Translation.Y, 5).ToString("0.00000")} {MathF.Round(transform.Translation.Z, 5).ToString("0.00000")} | {MathF.Round(transform.Rotation.X, 5).ToString("0.00000")} {MathF.Round(transform.Rotation.Y, 5).ToString("0.00000")} {MathF.Round(transform.Rotation.Z, 5).ToString("0.00000")} {MathF.Round(transform.Rotation.W, 5).ToString("0.00000")} | {MathF.Round(pitch * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(yaw * Rad2Deg, 5).ToString("0.00000")}, {MathF.Round(roll * Rad2Deg, 5).ToString("0.00000")}");
+            Plugin.Log!.Info($"-");
             if (parent != null && runParent)
                 parent.OutputToParent(runParent);
         }
@@ -566,7 +566,7 @@ namespace xivr.Structures
                     {
                         if (!reportedBones.ContainsKey(boneName))
                         {
-                            //PluginLog.Log($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
+                            //Log!.Info($"{p} {objPose64:X} {i} : Error finding bone {boneName}");
                             reportedBones.Add(boneName, true);
                         }
                         continue;

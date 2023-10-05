@@ -274,7 +274,7 @@ namespace xivr.Structures
         {
             Vector3 axis = Vector3.Cross(aFrom, aTo);
             float angle = Vector3.Angle(aFrom, aTo) * Rad2Deg;
-            //PluginLog.Log($"{angle} | {aFrom} | {aTo} | {axis}");
+            //Log!.Info($"{angle} | {aFrom} | {aTo} | {axis}");
             return AngleAxis(angle, Vector3.Normalize(axis));
         }
 

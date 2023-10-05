@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using ImGuiNET;
 
 namespace xivr.Structures
 {
@@ -65,9 +66,9 @@ namespace xivr.Structures
 
         public void Save(Character* character)
         {
-            MainHand.Save(character->DrawData.MainHandModel);
-            OffHand.Save(character->DrawData.OffHandModel);
-            Uk3.Save(character->DrawData.UnkE0Model);
+            MainHand.Save(character->DrawData.Weapon(DrawDataContainer.WeaponSlot.MainHand).ModelId);
+            OffHand.Save(character->DrawData.Weapon(DrawDataContainer.WeaponSlot.OffHand).ModelId);
+            Uk3.Save(character->DrawData.Weapon(DrawDataContainer.WeaponSlot.Unk).ModelId);
         }
 
     }
