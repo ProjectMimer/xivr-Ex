@@ -141,8 +141,8 @@ public:
 	~BasicRenderer();
 	bool SetDevice(ID3D11Device* tdev, ID3D11DeviceContext* tdevcon);
 	void SetMousePosition(HWND hwnd, int mouseX, int mouseY, bool forceMouse = false);
-	void SetMouseBuffer(HWND hwnd, int width, int height, int mouseX, int mouseY, bool dalamudMode);
-	void RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputType, bool dalamudMode, bool overUIElement, bool showOSK);
+	void SetMouseBuffer(stScreenLayout* screenLayout, int mouseX, int mouseY, bool dalamudMode);
+	void RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputType, bool dalamudMode, bool overUIElement, float uiAngleOffset, bool showOSK);
 	void RenderLines(std::vector<std::vector<float>> LineRender);
 	void DoRender(D3D11_VIEWPORT viewport, ID3D11RenderTargetView* rtv, ID3D11ShaderResourceView* srv, ID3D11DepthStencilView* dsv, stMatrixSet* matrixSet, bool isOrthog = false);
 	void SaveSettings();

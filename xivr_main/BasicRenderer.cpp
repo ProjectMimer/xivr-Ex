@@ -572,7 +572,7 @@ void BasicRenderer::SetMousePosition(HWND hwnd, int mouseX, int mouseY, bool for
 	}
 }
 
-void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX, int mouseY, bool dalamudMode)
+void BasicRenderer::SetMouseBuffer(stScreenLayout* screenLayout, int mouseX, int mouseY, bool dalamudMode)
 {
 	//----
 	// check and see if the main ui is the only object being interacted with
@@ -585,7 +585,7 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 		if(handSquareAtUI[i])
 			showOnUI |= false;
 
-	if (mouseX == width / 2 && mouseY == height / 2 || showOnUI != curvedUIAtUI)
+	if ((mouseX == screenLayout->width / 2 && mouseY == screenLayout->height / 2) || showOnUI != curvedUIAtUI)
 	{
 		mouseBuffer.radiusR.x = 0.000f;
 		mouseBuffer.radiusB.x = 0.000f;
@@ -593,32 +593,35 @@ void BasicRenderer::SetMouseBuffer(HWND hwnd, int width, int height, int mouseX,
 	else
 	{
 		mouseBuffer.radiusR.x = 0.0025f;
-		mouseBuffer.radiusB.x = 0.0025f;
-		if (showOnUI)
+		mouseBuffer.radiusB.x = 0.0005f;
+		if (cfg->motioncontrol)
 		{
-			mouseBuffer.radiusR.x = 0.0f;
-			mouseBuffer.radiusB.x = 0.0f;
+			if (showOnUI)
+			{
+				mouseBuffer.radiusR.x = 0.0f;
+				mouseBuffer.radiusB.x = 0.0f;
+			}
+			else if (dalamudMode == false)
+				mouseBuffer.radiusB.x = 0.0f;
+			else if (dalamudMode == true)
+				mouseBuffer.radiusR.x = 0.0f;
 		}
-		else if (dalamudMode == false)
-			mouseBuffer.radiusB.x = 0.0f;
-		else if (dalamudMode == true)
-			mouseBuffer.radiusR.x = 0.0f;
 	}
 
 	POINT p;
 	GetCursorPos(&p);
-	ScreenToClient(hwnd, &p);
+	ScreenToClient(screenLayout->hwnd, &p);
 
 	mouseBuffer.radiusR.y = 0.0f;
-	mouseBuffer.coordsR.x = mouseX / (float)width;
-	mouseBuffer.coordsR.y = mouseY / (float)height;
+	mouseBuffer.coordsR.x = mouseX / (float)screenLayout->width;
+	mouseBuffer.coordsR.y = mouseY / (float)screenLayout->height;
 	mouseBuffer.radiusB.y = 0.0f;
-	mouseBuffer.coordsB.x = p.x / (float)width;
-	mouseBuffer.coordsB.y = p.y / (float)height;
+	mouseBuffer.coordsB.x = p.x / (float)screenLayout->width;
+	mouseBuffer.coordsB.y = p.y / (float)screenLayout->height;
 	MapResource(pMouseBuffer, &mouseBuffer, sizeof(stMouseBuffer));
 }
 
-void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputRayType, bool dalamudMode, bool overUIElement, bool showOSK)
+void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout* oskLayout, XMMATRIX rayMatrix, Vector4 oskOffset, poseType inputRayType, bool dalamudMode, bool overUIElement, float uiAngleOffset, bool showOSK)
 {
 	struct intersectLayout
 	{
@@ -627,7 +630,7 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 		stScreenLayout* layout;
 		XMVECTOR intersection;
 		float dist;
-		float multiplyer;
+		unsigned int multiplyer;
 		bool updateDistance;
 		bool forceMouse;
 		bool fromCenter;
@@ -642,12 +645,14 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 	halfScreen.x = (screenLayout->width / 2);
 	halfScreen.y = (screenLayout->height / 2);
 
+	XMMATRIX rotateForwardMatrix = XMMatrixRotationY(uiAngleOffset * ((float)M_PI / 180.0f));
 
 	XMMATRIX aspectScaleMatrix = XMMatrixScaling(aspect, 1, 1);
 	XMMATRIX uiScaleMatrix = XMMatrixScaling(cfg->uiOffsetScale, cfg->uiOffsetScale, cfg->uiOffsetScale);
 	XMMATRIX uiZMatrix = XMMatrixTranslation(0.0f, 0.0f, (cfg->uiOffsetZ / 100.0f));
-	XMMATRIX moveMatrix = XMMatrixTranslation(0.0f, 0.0f, -1.0f);
-	curvedUI.SetObjectMatrix(aspectScaleMatrix * uiScaleMatrix * uiZMatrix * moveMatrix);
+	XMMATRIX moveMatrix = XMMatrixTranslation(0.0f, (cfg->uiOffsetY / 100.0f), -1.0f);
+
+	curvedUI.SetObjectMatrix(aspectScaleMatrix * uiScaleMatrix * uiZMatrix * moveMatrix * rotateForwardMatrix);
 
 	aspect = 1;
 	if (oskLayout != nullptr && oskLayout->haveLayout)
@@ -659,7 +664,7 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 	XMMATRIX scaleOSK = (oskLayout != nullptr && oskLayout->haveLayout && showOSK) ? XMMatrixScaling(1.0f, 1.0f, 1.0f) : XMMatrixScaling(0.0001f, 0.0001f, 0.0001f);
 	XMMATRIX offsetMatrixOSK = XMMatrixTranslation(oskOffset.x, oskOffset.y, oskOffset.z);
 	//XMMATRIX offsetMatrixOSK = XMMatrixRotationY(-oskOffset.x * 3);
-	osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * rotateMatrixOSK * uiZMatrix * moveMatrixOSK * offsetMatrixOSK * scaleOSK);
+	osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * rotateMatrixOSK * uiZMatrix * moveMatrixOSK * offsetMatrixOSK * scaleOSK * rotateForwardMatrix);
 	//osk.SetObjectMatrix(aspectScaleMatrixOSK * scaleMatrixOSK * uiZMatrix * offsetMatrixOSK * scaleOSK);
 
 	XMMATRIX scaleMatrixRHC = XMMatrixScaling(0.025f, 0.025f, 0.05f);
@@ -685,12 +690,6 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 			end.m128_f32[0], end.m128_f32[1], end.m128_f32[2],			1.0f, 0.0f, 0.0f, 1.0f
 		};
 
-		/*if (dalamudMode)
-		{
-			lineData[ 3] = 0.498f; lineData[ 4] = 0.0f; lineData[ 5] = 1.0f;
-			lineData[10] = 0.498f; lineData[11] = 0.0f; lineData[12] = 1.0f;
-		}*/
-
 		//----
 		// Add all the interactable items to the intersect list
 		//----
@@ -701,7 +700,7 @@ void BasicRenderer::RunFrameUpdate(stScreenLayout* screenLayout, stScreenLayout*
 		if(dalamudMode)
 			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 1, dalamudMode, false, true });
 		else
-			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, 3, overUIElement, false, true });
+			intersectList.push_back({ &curvedUI, &curvedUIAtUI, screenLayout, { 0, 0, 0 }, 0, (cfg->mouseMultiplyer + 1), overUIElement, false, true });
 
 		pixelCoordFromScreen.x = halfScreen.x;
 		pixelCoordFromScreen.y = halfScreen.y;

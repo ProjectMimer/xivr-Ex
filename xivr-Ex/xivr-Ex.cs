@@ -16,8 +16,10 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
+using Dalamud.Interface.Internal;
+using Dalamud.Interface.Windowing;
 
-using xivr.Structures;
+using xivr.Windows;
 using MemoryManager.Structures;
 using static xivr.Configuration;
 
@@ -56,6 +58,11 @@ namespace xivr
         public static Configuration? cfg { get; private set; }
         public static TitleScreenMenuEntry? xivrMenuEntry { get; private set; }
 
+        public WindowSystem WindowSystem = new("xivr");
+        private DalamudOptionsError dalamudErrorWindow { get; init; }
+        private xivrSettings xivrSettingsWindow { get; init; }
+
+
         private bool pluginReady = false;
         private bool haveLoaded = false;
         private bool haveDrawn = false;
@@ -81,16 +88,44 @@ namespace xivr
                 if (VR_IsHmdPresent())
                     haveHMD = true;
 
+                dalamudErrorWindow = new DalamudOptionsError(this, cfg);
+                xivrSettingsWindow = new xivrSettings(this, cfg);
+                WindowSystem.AddWindow(dalamudErrorWindow);
+                WindowSystem.AddWindow(xivrSettingsWindow);
+
+                Interop.InitializeFromAttributes(this);
+                CheckLoadRequiredStateInJSON();
+                
+                if(dalamudErrorWindow.CheckDalamudOptions())
+                    ToggleErrorWindow();
+
+                try
+                {
+                    Assembly myAssembly = Assembly.GetExecutingAssembly();
+                    Stream imgStream = myAssembly.GetManifestResourceStream("xivr-Ex.xivr-Ex.png");
+                    if (imgStream != null)
+                    {
+                        var imgBytes = new byte[imgStream.Length];
+                        imgStream.Read(imgBytes, 0, imgBytes.Length);
+                        IDalamudTextureWrap image = PluginInterface!.UiBuilder.LoadImage(imgBytes);
+                        xivrMenuEntry = TitleScreenMenu!.AddEntry("xivr-Ex", image, ToggleConfig);
+                    }
+                }
+                catch (Exception e) { Log!.Error($"Failed adding menu item\n{e}"); }
+
                 IntPtr hModule = Imports.GetModuleHandle("dxgi.dll");
                 if (hModule != IntPtr.Zero)
                 {
                     factoryAddress = Imports.GetProcAddress(hModule, "CreateDXGIFactory");
                     factory1Address = Imports.GetProcAddress(hModule, "CreateDXGIFactory1");
-
-                    Interop.InitializeFromAttributes(this);
                     CreateDXGIFactoryStatus(true, false);
                 }
-                CheckLoadRequiredStateInJSON();
+
+                CommandManager!.RemoveHandler(commandName);
+                CommandManager!.AddHandler(commandName, new CommandInfo(CheckCommands)
+                {
+                    HelpMessage = "Opens the VR settings menu."
+                });
 
                 iFramework!.Update += Update;
                 iFramework!.Update += InitializeCheck;
@@ -128,61 +163,42 @@ namespace xivr
 
         private unsafe bool Initialize()
         {
+            cfg!.data.isEnabled = false;
+            cfg!.data.asymmetricProjection = true;
+
             try
             {
-                Assembly myAssembly = Assembly.GetExecutingAssembly();
-                Stream imgStream = myAssembly.GetManifestResourceStream("xivr-Ex.xivr-Ex.png");
-                if (imgStream != null)
+                Process[] pname = Process.GetProcessesByName("vrserver");
+                Log!.Info($"SteamVR Active: {((pname.Length > 0) ? true : false)}");
+                if (pname.Length > 0 && cfg.data.isAutoEnabled)
                 {
-                    var imgBytes = new byte[imgStream.Length];
-                    imgStream.Read(imgBytes, 0, imgBytes.Length);
-                    //ImGuiScene.TextureWrap image = PluginInterface!.UiBuilder.LoadImage(imgBytes);
-                    //xivrMenuEntry = TitleScreenMenu!.AddEntry("xivr-Ex", image, ToggleConfig);
+                    cfg!.data.isEnabled = true;
                 }
-
-                cfg!.data.isEnabled = false;
-                cfg!.data.asymmetricProjection = true;
 
                 try
                 {
-                    Process[] pname = Process.GetProcessesByName("vrserver");
-                    Log!.Info($"SteamVR Active: {((pname.Length > 0) ? true : false)}");
-                    if (pname.Length > 0 && cfg.data.isAutoEnabled)
-                    {
-                        cfg!.data.isEnabled = true;
-                    }
+                    counter = 50;
+                    Imports.UpdateConfiguration(cfg.data);
 
-                    try
-                    {
-                        CommandManager!.RemoveHandler(commandName);
-                        CommandManager!.AddHandler(commandName, new CommandInfo(CheckCommands)
-                        {
-                            HelpMessage = "Opens the VR settings menu."
-                        });
+                    ClientLanguage curLng = ClientState!.ClientLanguage;
+                    if (curLng == ClientLanguage.Japanese)
+                        cfg!.data.languageType = LanguageTypes.jp;
+                    else
+                        cfg!.data.languageType = LanguageTypes.en;
 
-                        counter = 50;
-                        Imports.UpdateConfiguration(cfg.data);
-                        
-                        ClientLanguage curLng = ClientState!.ClientLanguage;
-                        if (curLng == ClientLanguage.Japanese)
-                            cfg!.data.languageType = LanguageTypes.jp;
-                        else
-                            cfg!.data.languageType = LanguageTypes.en;
-
-                        smm.SetOpen(SharedMemoryPlugins.XIVR);
-                        Marshal.PrelinkAll(typeof(xivr_hooks));
-                        return xivr_hooks.Initialize();
-                    }
-                    catch (Exception e) { Log!.Error($"Failed loading vr dll\n{e}"); }
+                    smm.SetOpen(SharedMemoryPlugins.XIVR);
+                    Marshal.PrelinkAll(typeof(xivr_hooks));
+                    return xivr_hooks.Initialize();
                 }
-                catch (Exception e) { Log!.Error($"Failed initalizing vr\n{e}"); }
+                catch (Exception e) { Log!.Error($"Failed loading vr dll\n{e}"); }
             }
-            catch (Exception e) { Log!.Error($"Failed adding menu item\n{e}"); }
+            catch (Exception e) { Log!.Error($"Failed initalizing vr\n{e}"); }
+            
             return false;
         }
 
 
-
+        /*
         [AttributeUsage(AttributeTargets.Method)]
         public class CommandAttribute : Attribute
         {
@@ -192,9 +208,10 @@ namespace xivr
             {
                 Command = command;
             }
-        }
+        }*/
 
-        public void ToggleConfig() => PluginUI.isVisible ^= true;
+        public void ToggleConfig() => xivrSettingsWindow.IsOpen ^= true;
+        public void ToggleErrorWindow() => dalamudErrorWindow.IsOpen ^= true;
 
         private unsafe void CheckCommands(string command, string argument)
         {
@@ -386,6 +403,11 @@ namespace xivr
         {
             if (pluginReady && haveDrawn && haveLoaded)
             {
+                if (xivrSettingsWindow.CheckUpdate())
+                {
+                    xivrSettingsWindow.Reset();
+                    doUpdate = true;
+                }
                 if (doUpdate == true)
                 {
                     xivr_hooks.SetRenderingMode();
@@ -501,7 +523,7 @@ namespace xivr
             if (pluginReady)
             {
                 haveDrawn = true;
-                PluginUI.Draw(Language.rawLngData[cfg!.data.languageType], ref doUpdate);
+                WindowSystem.Draw();
             }
         }
 
@@ -510,6 +532,9 @@ namespace xivr
             firstRun = false;
             if (pluginReady)
             {
+                xivr_hooks.Stop();
+                smm.SetClose(SharedMemoryPlugins.XIVR);
+
                 CommandManager!.RemoveHandler(commandName);
                 TitleScreenMenu!.RemoveEntry(xivrMenuEntry!);
                 iFramework!.Update -= Update;
@@ -519,16 +544,13 @@ namespace xivr
                 PluginInterface!.UiBuilder.Draw -= Draw;
                 PluginInterface!.UiBuilder.OpenConfigUi -= ToggleConfig;
 
+                WindowSystem.RemoveAllWindows();
+                dalamudErrorWindow.Dispose();
+                xivrSettingsWindow.Dispose();
+
                 haveLoaded = false;
                 haveDrawn = false;
-
-                
-                xivr_hooks.Stop();
-                xivr_hooks.Dispose();
-                smm.SetClose(SharedMemoryPlugins.XIVR);
-                smm.Dispose();
-                //smm.OutputStatus();
-
+               
                 if (hasResized == true)
                 {
                     xivr_hooks.WindowResize(origWindowSize.X, origWindowSize.Y);
@@ -542,6 +564,10 @@ namespace xivr
                     Log!.Info($"Resetting window position");
                     hasMoved = false;
                 }
+
+                xivr_hooks.Dispose();
+                smm.Dispose();
+                //smm.OutputStatus();
 
                 CreateDXGIFactoryStatus(false, false);
                 CreateDXGIFactoryStatus(false, true);

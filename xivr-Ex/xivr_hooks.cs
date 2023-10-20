@@ -74,6 +74,7 @@ namespace xivr
         private bool isCharMake = false;
         private bool isCharSelect = false;
         private bool isHousing = false;
+
         private byte targetAddonAlpha = 0;
         private RenderModes curRenderMode = RenderModes.None;
         private int curEye = 0;
@@ -85,6 +86,7 @@ namespace xivr
         private float leftBumperValue = 0.0f;
         private float BridgeBoneHeight = 0.0f;
         private float armLength = 1.0f;
+        private float uiAngleOffset = 0.0f;
         private ChangedTypeBool mouseoverUI = new ChangedTypeBool();
         private ChangedTypeBool mouseoverTarget = new ChangedTypeBool();
         private ChangedTypeBool inCutscene = new ChangedTypeBool();
@@ -148,6 +150,8 @@ namespace xivr
                                                     0, -1, 0, 0,
                                                     -1, 0, 0, 0,
                                                     0, 0, 0, 1);
+        private Vector3 avgHCPosition = new Vector3();
+        private float avgHCRotation = 0.0f;
 
         private ExclusiveExtras exExtras = new ExclusiveExtras();
         private SceneCameraManager* scCameraManager = null;
@@ -306,7 +310,8 @@ namespace xivr
                 "MouseOpeLimit",
                 "Gamma",
                 "Fps",
-                "MainAdapter"
+                "MainAdapter",
+                "FPSCameraInterpolationType"
                 };
 
                 MappedSettings.Clear();
@@ -319,6 +324,7 @@ namespace xivr
                             continue;
 
                         string name = MemoryHelper.ReadStringNullTerminated(new IntPtr(cfgItem.Name));
+                        //Plugin.Log!.Info($"Location : {i} cfgGroup: {cfgId}  name: {name}");
                         if (cfgSearchStrings.Contains(name))
                         {
                             if (!MappedSettings.ContainsKey(name))
@@ -333,7 +339,7 @@ namespace xivr
                     Plugin.Log!.Info($"Key Found {item.Key}");
                     for(int i = 0; i < item.Value.Count; i++)
                     {
-                        Plugin.Log!.Info($"Location : {i} cfgGroup: {item.Value[i].Item1}  cfgOffset: {item.Value[i].Item2}");
+                        Plugin.Log!.Info($"Location : {i} cfgGroup: {item.Value[i].Item1} cfgOffset: {item.Value[i].Item2}");
                     }
                 }
                 */
@@ -431,6 +437,11 @@ namespace xivr
                 Plugin.Log!.Info($"-- asymmetricProjection = {Plugin.cfg.data.asymmetricProjection}");
                 Plugin.Log!.Info($"-- immersiveMovement = {Plugin.cfg.data.immersiveMovement}");
                 Plugin.Log!.Info($"-- immersiveFull = {Plugin.cfg.data.immersiveFull}");
+                Plugin.Log!.Info($"-- ultrawideshadows = {Plugin.cfg.data.ultrawideshadows}");
+                Plugin.Log!.Info($"-- osk = {Plugin.cfg.data.osk}");
+                Plugin.Log!.Info($"-- disableXboxShoulder = {Plugin.cfg.data.disableXboxShoulder}");
+                Plugin.Log!.Info($"-- uiOffsetY = {Plugin.cfg.data.uiOffsetY}");
+                Plugin.Log!.Info($"-- mouseMultiplyer = {Plugin.cfg.data.mouseMultiplyer}");
                 Plugin.Log!.Info($"Start A {initalized} {hooksSet}");
             }
 
@@ -451,12 +462,12 @@ namespace xivr
 
                 SetRenderingMode();
 
-
                 MouseOpeLimit = GetSettingsValue(MappedSettings["MouseOpeLimit"], 0);
                 if (GetSettingsValue(MappedSettings["Gamma"], 0) == 50)
                     SetSettingsValue(MappedSettings["Gamma"], 49);
                 SetSettingsValue(MappedSettings["Fps"], 0);
                 SetSettingsValue(MappedSettings["MouseOpeLimit"], 1);
+                SetSettingsValue(MappedSettings["FPSCameraInterpolationType"], 2);
 
                 if (DisableSetCursorPosAddr != 0)
                     SafeMemory.Write<UInt64>((IntPtr)DisableSetCursorPosAddr, DisableSetCursorPosOverride);
@@ -790,12 +801,22 @@ namespace xivr
                 rhcPalmMatrix = Imports.GetFramePose(poseType.RightHandPalm, -1);// * hmdWorldScale;
                 //hmdMatrix.Translation = headBoneMatrix.Translation;
                 Matrix4x4.Invert(hmdMatrix, out hmdMatrixI);
+                avgHCPosition = (lhcMatrix.Translation + rhcMatrix.Translation) / 2;
+                
+                if(!Plugin.cfg!.data.standingMode)
+                {
+                    RawGameCamera* gameCamera = scCameraManager->GetActive();
+                    if (gameCamera != null)
+                        avgHCRotation = MathF.PI;
+                }
+                else
+                    avgHCRotation = MathF.Atan2(avgHCPosition.X, avgHCPosition.Z);
 
                 handWatch = lhcMatrix * hmdWorldScale;
                 handBoneRay = rhcMatrix * hmdWorldScale;
 
                 frfCalculateViewMatrix = false;
-                
+
                 Point currentMouse = new Point();
                 Point halfScreen = new Point();
                 if (dx11DeviceInstance != null && dx11DeviceInstance->SwapChain != null)
@@ -809,9 +830,7 @@ namespace xivr
                 Imports.GetCursorPos(out currentMouse);
                 Imports.ScreenToClient((IntPtr)screenSettings->hWnd, out currentMouse);
 
-                int mouseMultiplyer = 3;
-                //if (dalamudMode)
-                //    mouseMultiplyer = 1;
+                int mouseMultiplyer = (int)(Plugin.cfg!.data.mouseMultiplyer + 1);
 
                 //----
                 // Changes anchor from top left corner to middle of screen
@@ -836,6 +855,7 @@ namespace xivr
                         ThirdToFirstPersonView();
 
                 isMounted = false;
+                //uiAngleOffset += 0.5f;
 
                 PlayerCharacter? player = Plugin.ClientState!.LocalPlayer;
                 if (player != null)
@@ -1422,7 +1442,7 @@ namespace xivr
             {
                 Imports.RenderUI();
                 DXGIPresentHook!.Original(a, b);
-                Imports.RenderVR(curProjection, curViewMatrixWithoutHMD, handBoneRay, handWatch, virtualMouse, dalamudMode, forceFloatingScreen);
+                Imports.RenderVR(curProjection, curViewMatrixWithoutHMD, handBoneRay, handWatch, virtualMouse, uiAngleOffset, dalamudMode, forceFloatingScreen);
             }
         }
 
@@ -1700,14 +1720,13 @@ namespace xivr
                 if (Plugin.cfg!.data.verticalLock)
                     gameCamera->Camera.VRotationThisFrame2 = 0;
 
-                gameCamera->Camera.HRotationThisFrame2 += rotateAmount.X;
-                gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
-
                 if (gameMode.Current == CameraModes.FirstPerson)
                 {
                     gameCamera->Camera.VRotationThisFrame1 = 0.0f;
                     gameCamera->Camera.VRotationThisFrame2 = 0.0f;
                 }
+                gameCamera->Camera.HRotationThisFrame2 += rotateAmount.X;
+                gameCamera->Camera.VRotationThisFrame2 += rotateAmount.Y;
 
                 rotateAmount.X = 0;
                 rotateAmount.Y = 0;
@@ -2015,7 +2034,6 @@ namespace xivr
         // 4 left | up down
         // 5 right | left right
         // 6 right | up down
-
         private Int32 GetAnalogueValueFn(UInt64 a, UInt64 b)
         {
             Int32 retVal = GetAnalogueValueHook!.Original(a, b);
@@ -2108,7 +2126,6 @@ namespace xivr
 
             leftBumperValue = *(float*)(controllerAddress + (UInt64)(offsets->left_bumper * 4));
 
-
             if (hooksSet && enableVR && Plugin.cfg!.data.motioncontrol)
             {
                 if (xboxStatus.dpad_up.active)
@@ -2173,18 +2190,18 @@ namespace xivr
                 angles = GetAngles(hmdMatrix);
                 doLocomotion = true;
             }
-            if (doLocomotion)
-            {
-                float up_down = (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) + -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)));
-                float left_right = -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) + (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)));
+            if (doLocomotion && Plugin.cfg!.data.vertloc)
+                movementManager->Ground.AscendDecendPitch = MathF.Min(1.5f, MathF.Max(-1.5f, (angles.X * 1.5f))) + 0.5f;
 
+            float up_down = (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_up * 4))) + -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_down * 4)));
+            float left_right = -(*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) + (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4)));
+
+            if (doLocomotion && gameMode.Current == CameraModes.ThirdPerson)
+            {
                 float stickAngle = MathF.Atan2(left_right, up_down);
                 if (left_right == -1) stickAngle = -90 * Deg2Rad;
                 else if (left_right == 1) stickAngle = 90 * Deg2Rad;
                 stickAngle += angles.Y;
-
-                if(Plugin.cfg!.data.vertloc)
-                    movementManager->Ground.AscendDecendPitch = MathF.Min(1.5f, MathF.Max(-1.5f, (angles.X * 1.5f))) + 0.5f;
 
                 Vector2 newValue = new Vector2(MathF.Sin(stickAngle), MathF.Cos(stickAngle));
                 float hyp = MathF.Sqrt(up_down * up_down + left_right * left_right);
@@ -2213,6 +2230,7 @@ namespace xivr
                     (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_left * 4))) = MathF.Abs(newValue.X);
                     (*(float*)(controllerAddress + (UInt64)(offsets->left_stick_right * 4))) = 0;
                 }
+                
             }
             if (hooksSet && enableVR && Plugin.cfg!.data.motioncontrol)
             {
@@ -2341,6 +2359,38 @@ namespace xivr
 
                 ControllerInputHook!.Original(a, b, c);
 
+                if (doLocomotion && gameMode.Current == CameraModes.FirstPerson)
+                {
+                    if (MathF.Abs(up_down) > 0 || MathF.Abs(left_right) > 0)
+                    {
+                        Character* bonedCharacter = GetCharacterOrMouseover(2);
+                        RawGameCamera* gameCamera = scCameraManager->GetActive();
+                        if (bonedCharacter != null && gameCamera != null)
+                            bonedCharacter->GameObject.Rotate(gameCamera->CurrentHRotation - angles.Y);
+                    }
+                    else
+                    {
+                        Character* bonedCharacter = GetCharacterOrMouseover(2);
+                        RawGameCamera* gameCamera = scCameraManager->GetActive();
+                        if (bonedCharacter != null && gameCamera != null)
+                        {
+                            Structures.Model* model = (Structures.Model*)bonedCharacter->GameObject.DrawObject;
+                            if (model != null)
+                            {
+                                Structures.Model* modelMount = (Structures.Model*)model->mountedObject;
+                                Structures.Model* playerMount = (Structures.Model*)bonedCharacter->Mount.MountObject;
+                                if (modelMount != null && playerMount == null)
+                                {
+                                    Vector3 mountAngles = GetAngles(modelMount->basePosition.Rotation.Convert());
+                                    gameCamera->CurrentHRotation = mountAngles.Y;
+                                    //bonedCharacter->GameObject.Rotate(0);
+                                   //Plugin.Log!.Info($"{mountAngles}");
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (updateLeftAfterInput)
                     *(float*)(controllerAddress + (UInt64)(offsets->left_stick_click * 4)) = leftStickOrig;
                 if (updateRightAfterInput)
@@ -2411,6 +2461,24 @@ namespace xivr
             pitch = 1 * MathF.Asin(2f * (q1.X * q1.Z - q1.W * q1.Y));                                         // Pitch
             roll = 1 * MathF.Atan2(2f * (q1.X * q1.Y + q1.Z * q1.W), 1f - 2f * (q1.Y * q1.Y + q1.Z * q1.Z));  // Roll
             return new Vector3(pitch, yaw, roll);
+        }
+
+        float AngleFromToVector(Vector3 from, Vector3 to)
+        {
+            float kEpsilonNormalSqrt = 1e-15F;
+            // sqrt(a) * sqrt(b) = sqrt(a * b) -- valid for real numbers
+            float denominator = (float)Math.Sqrt(from.LengthSquared() * to.LengthSquared());
+            if (denominator < kEpsilonNormalSqrt)
+                return 0F;
+
+            float rawDot = Vector3.Dot(from, to);
+            float dot = Math.Clamp(rawDot / denominator, -1f, 1f);
+            float angle = ((float)Math.Acos(dot)) * Rad2Deg;
+            float atanA = MathF.Atan2(from.X, from.Z);
+            float atanb = MathF.Atan2(to.X, to.Z);
+
+            Plugin.Log!.Info($"{atanb * Rad2Deg} {rawDot} {dot}");
+            return angle * ((rawDot < 0) ? -1 : 1);
         }
 
 
@@ -3224,6 +3292,10 @@ namespace xivr
             //Log!.Info($"RenderSkeletonListFn {(UInt64)RenderSkeletonLinkedList:x} {curEye}");
             RenderSkeletonListHook!.Original(RenderSkeletonLinkedList, frameTiming);
 
+            RawGameCamera* gameCamera = scCameraManager->GetActive();
+            if (gameCamera == null)
+                return;
+
             Character* bonedCharacter = GetCharacterOrMouseover();
             if (bonedCharacter == null)
                 return;
@@ -3238,7 +3310,30 @@ namespace xivr
 
             //UpdateBoneCamera();
             UpdateBoneScales();
-            
+
+            uiAngleOffset = 0;
+            if (gameMode.Current == CameraModes.FirstPerson)
+            {
+                Structures.Model* modelMount = (Structures.Model*)model->mountedObject;
+                Structures.Model* playerMount = (Structures.Model*)bonedCharacter->Mount.MountObject;
+                if (modelMount != null && playerMount == null)
+                {
+
+                }
+                else if (modelMount != null && playerMount != null)
+                {
+                    Vector3 mountAngle = GetAngles(modelMount->basePosition.Rotation.Convert());
+                    Skeleton* mountSkeleton = modelMount->skeleton;
+                    if (mountSkeleton != null)
+                        mountSkeleton->Transform.Rotation = Quaternion.CreateFromYawPitchRoll(gameCamera->CurrentHRotation - (MathF.PI - avgHCRotation), 0, 0);
+                }
+                else
+                {
+                    skeleton->Transform.Rotation = Quaternion.CreateFromYawPitchRoll(gameCamera->CurrentHRotation - (MathF.PI - avgHCRotation), 0, 0);
+                }
+
+                uiAngleOffset = 0;// MathF.Floor(((avgHCRotation - 90 - 45) * Rad2Deg) / 72) * 72.0f;
+            }
 
             while (multiIK[curEye].Count > 0)
             {
@@ -3374,6 +3469,12 @@ namespace xivr
             Matrix4x4 hmdLocalScale = Matrix4x4.CreateScale((armLength / 0.5f) * (ikElement->armMultiplier / 100.0f));
             Matrix4x4 hmdRotate = Matrix4x4.CreateFromYawPitchRoll(90 * Deg2Rad, 180 * Deg2Rad, 0 * Deg2Rad);
             Matrix4x4 hmdFlipScale = Matrix4x4.CreateScale(-1, 1, -1);
+            Matrix4x4 avgController = Matrix4x4.CreateFromYawPitchRoll(MathF.PI - ikElement->avgControllerRotation, 0, 0);
+            //Vector3 anglesSkel = GetAngles(model->Transform.Rotation);
+            Vector3 anglesLHC = GetAngles(matrixLHC);
+            Vector3 anglesRHC = GetAngles(matrixRHC);
+
+            //Plugin.Log!.Info($"{avgHCRotation * Rad2Deg} {avgHCPosition}");
 
             hkIKSetup ikSetupHead = new hkIKSetup();
             bool runIKHead = false;
@@ -3396,7 +3497,7 @@ namespace xivr
             if (csb.e_arm_l >= 0 && csb.e_forearm_l >= 0 && csb.e_hand_l >= 0 && ikElement->doHandIK)
             {
                 runIKL = true;
-                Matrix4x4 palmL = hmdRotate * matrixLHC * hmdFlipScale;
+                Matrix4x4 palmL = hmdRotate * matrixLHC * avgController * hmdFlipScale;
                 ikSetupL.m_firstJointIdx = csb.e_arm_l;
                 ikSetupL.m_secondJointIdx = csb.e_forearm_l;
                 ikSetupL.m_endBoneIdx = csb.e_hand_l;
@@ -3412,7 +3513,7 @@ namespace xivr
             if (csb.e_arm_r >= 0 && csb.e_forearm_r >= 0 && csb.e_hand_r >= 0 && ikElement->doHandIK)
             {
                 runIKR = true;
-                Matrix4x4 palmR = hmdRotate * matrixRHC * hmdFlipScale;
+                Matrix4x4 palmR = hmdRotate * matrixRHC * avgController * hmdFlipScale;
                 ikSetupR.m_firstJointIdx = csb.e_arm_r;
                 ikSetupR.m_secondJointIdx = csb.e_forearm_r;
                 ikSetupR.m_endBoneIdx = csb.e_hand_r;
@@ -3448,22 +3549,17 @@ namespace xivr
                     if (runIKL)
                     {
                         ikSetupL.m_endTargetMS.Y += neckOffsetAvg.Average;
-
-                        Vector3 angles = GetAngles(matrixLHC);
                         transform = objPose->LocalPose[csb.e_wrist_l];
-                        transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, (angles.Z / 2.0f), 0).Convert();
+                        transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, (anglesLHC.Z / 2.0f), 0).Convert();
                         objPose->LocalPose[csb.e_wrist_l] = transform;
-
                         twoBoneIKFn!(&lockItem, ikSetupL, objPose);
                     }
 
                     if (runIKR)
                     {
                         ikSetupR.m_endTargetMS.Y += neckOffsetAvg.Average;
-
-                        Vector3 angles = GetAngles(matrixRHC);
                         transform = objPose->LocalPose[csb.e_wrist_r];
-                        transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, (angles.Z / 2.0f), 0).Convert();
+                        transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, (anglesRHC.Z / 2.0f), 0).Convert();
                         objPose->LocalPose[csb.e_wrist_r] = transform;
 
                         twoBoneIKFn!(&lockItem, ikSetupR, objPose);
@@ -4918,7 +5014,8 @@ namespace xivr
                 lhc, 
                 rhc,
                 motionControls,
-                armMultiplier
+                armMultiplier,
+                avgHCRotation
                 ));
             multiIK[1].Enqueue(new stMultiIK(
                 character->CurrentWorld, 
@@ -4930,7 +5027,8 @@ namespace xivr
                 lhc, 
                 rhc,
                 motionControls,
-                armMultiplier
+                armMultiplier,
+                avgHCRotation
                 ));
         }
         private void GetMultiplayerIKData()

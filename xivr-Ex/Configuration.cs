@@ -59,6 +59,9 @@ namespace xivr
             [MarshalAs(UnmanagedType.U1)] public bool osk;
             [MarshalAs(UnmanagedType.R4)] public float armMultiplier;
             [MarshalAs(UnmanagedType.U1)] public bool disableXboxShoulder;
+            [MarshalAs(UnmanagedType.R4)] public float uiOffsetY;
+            [MarshalAs(UnmanagedType.U4)] public uint mouseMultiplyer;
+            [MarshalAs(UnmanagedType.U1)] public bool standingMode;
 
             public cfgData()
             {
@@ -107,6 +110,9 @@ namespace xivr
                 osk = false;
                 armMultiplier = 100.0f;
                 disableXboxShoulder = false;
+                uiOffsetY = 0.0f;
+                mouseMultiplyer = 2;
+                standingMode = false;
             }
         }
 

@@ -106,7 +106,7 @@ extern "C"
 	__declspec(dllexport) uMatrix GetFramePose(poseType poseType, int eye);
 	__declspec(dllexport) fingerHandLayout GetSkeletalPose(poseType poseType);
 	__declspec(dllexport) void SetThreadedEye(int eye);
-	__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, bool dalamudMode, bool floatingUI);
+	__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, float uiAngleOffset, bool dalamudMode, bool floatingUI);
 	__declspec(dllexport) void RenderUI();
 	__declspec(dllexport) void RenderUID(unsigned long long struct_deivce, XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD);
 	__declspec(dllexport) POINT GetBufferSize();
@@ -785,7 +785,7 @@ __declspec(dllexport) void SetThreadedEye(int eye)
 	threadedEyeIndexCount++;
 }
 
-__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, bool dalamudMode, bool floatingUI)
+__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, float uiAngleOffset, bool dalamudMode, bool floatingUI)
 {
 	if (enabled)// && (threadedEye == 1 || cfg.mode2d == true))
 	{
@@ -813,14 +813,14 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 		// Sets the mouse and ray for the next frame with the current tracking data
 		//----
 		if (cfg.motioncontrol)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dalamudMode, overUIElement, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.rhcMatrix, matrixSet.oskOffset, poseType::RightHand, dalamudMode, overUIElement, uiAngleOffset, showOSK);
 		else if (cfg.hmdPointing)
-			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dalamudMode, overUIElement, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, matrixSet.hmdMatrix, matrixSet.oskOffset, poseType::hmdPosition, dalamudMode, overUIElement, uiAngleOffset, showOSK);
 		else
-			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dalamudMode, overUIElement, showOSK);
+			rend->RunFrameUpdate(&screenLayout, oskLayout, XMMatrixIdentity(), matrixSet.oskOffset, poseType::None, dalamudMode, overUIElement, uiAngleOffset, showOSK);
 		rend->RenderLines(LineRender);
 
-		rend->SetMouseBuffer(screenLayout.hwnd, screenLayout.width, screenLayout.height, virtualMouse.x, virtualMouse.y, dalamudMode);
+		rend->SetMouseBuffer(&screenLayout, virtualMouse.x, virtualMouse.y, dalamudMode);
 		
 		if (rend->HasErrors())
 		{

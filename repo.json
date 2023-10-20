@@ -4,7 +4,7 @@
     "Name": "XIVR-Ex - VR Mod",
     "Description": "Mod to allow vr + extra options",
     "InternalName": "xivr-Ex",
-    "AssemblyVersion": "0.0.6.2",
+    "AssemblyVersion": "0.0.7.0",
     "RepoUrl": "https://github.com/ProjectMimer/xivr-Ex",
     "ApplicableVersion": "any",
     "Tags": [
@@ -13,11 +13,11 @@
     "IconUrl": "https://raw.githubusercontent.com/ProjectMimer/xivr-Ex/main/images/icon.png",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1696477546,
+    "LastUpdated": 1697787834,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/xivr-Ex/0.0.6.2/xivr-Ex.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/xivr-Ex/0.0.6.2/xivr-Ex.zip",
-    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/xivr-Ex/0.0.6.2/xivr-Ex.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/xivr-Ex/0.0.7.0/xivr-Ex.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/xivr-Ex/0.0.7.0/xivr-Ex.zip",
+    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/xivr-Ex/0.0.7.0/xivr-Ex.zip"
   },
   {
     "Author": "Marulu, StreetRat",
@@ -64,7 +64,7 @@
     "Name": "ConvenientGraphics",
     "Description": "Changing Graphics and other settings on the fly",
     "InternalName": "ConvenientGraphics",
-    "AssemblyVersion": "0.0.0.4",
+    "AssemblyVersion": "0.0.0.5",
     "RepoUrl": "https://github.com/ProjectMimer/ConvenientGraphics",
     "ApplicableVersion": "any",
     "Tags": [
@@ -73,10 +73,10 @@
     "IconUrl": "",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1696477546,
+    "LastUpdated": 1697787834,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.4/ConvenientGraphics.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.4/ConvenientGraphics.zip",
-    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.4/ConvenientGraphics.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.5/ConvenientGraphics.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.5/ConvenientGraphics.zip",
+    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.5/ConvenientGraphics.zip"
   }
 ]

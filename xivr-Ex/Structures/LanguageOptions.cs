@@ -53,6 +53,11 @@ namespace xivr.Structures
         public string enableOSK_Line1;
         public string armMultiplier_Line1;
         public string disableXboxShoulder_Line1;
+        public string uiOffsetY_Line1;
+        public string mouseMultiplyer_Line1;
+        public string standingMode_Line1;
+        public string errorSettingsMessage_Line1;
+        public string errorSettingsRestart_Line1;
     }
 
     public static class Language
@@ -100,7 +105,13 @@ namespace xivr.Structures
                     autoMove_Line1 = "Auto Move when activated",
                     enableOSK_Line1 = "Virtual Keyboard (Requires Admin)",
                     armMultiplier_Line1 = "IK Hand Distance Scale",
-                    disableXboxShoulder_Line1 = "Disable XBox Shoulder Buttons"
+                    disableXboxShoulder_Line1 = "Disable XBox Shoulder Buttons",
+                    uiOffsetY_Line1 = "UI Y Offset",
+                    mouseMultiplyer_Line1 = "Mouse Multiplyer",
+                    standingMode_Line1 = "Standing Mode",
+
+                    errorSettingsMessage_Line1 = "For the VR mod to be able to operate certain settings have to be changed:",
+                    errorSettingsRestart_Line1 = "Please restart the game after saving this setting."
                 }
             },
             {
@@ -145,7 +156,13 @@ namespace xivr.Structures
                     autoMove_Line1 = "自動ウィンドウ位置調整",
                     enableOSK_Line1 = "バーチャルキーボード（管理者権限必要",
                     armMultiplier_Line1 = "IK手距離スケール",
-                    disableXboxShoulder_Line1 = "XBoxショルダーボタン無効"
+                    disableXboxShoulder_Line1 = "XBoxショルダーボタン無効",
+                    uiOffsetY_Line1 = "メニュー縦位置調整",
+                    mouseMultiplyer_Line1 = "Mouse マウス倍率",
+                    standingMode_Line1 = "スタンディングモード",
+
+                    errorSettingsMessage_Line1 = "VRMod正常に起動する為に以下の設定は変更する必要があります",
+                    errorSettingsRestart_Line1 = "設定の変更後ゲームを再起動してください"
                 }
             }
         };

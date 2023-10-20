@@ -55,14 +55,18 @@ namespace xivr.Structures
             // Enable all hooks
             //----
             if (doDebug)
-                Plugin.Log!.Info("HookManager: Enabling All Functions");
-            foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
             {
-                Plugin.Log!.Info($"HookManager: Enabling {attrib.Key}");
-                attrib.Value(true, false);
-            }
-            if (doDebug)
+                Plugin.Log!.Info("HookManager: Enabling All Functions");
+                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                {
+                    Plugin.Log!.Info($"HookManager: Enabling {attrib.Key}");
+                    attrib.Value(true, false);
+                }
                 Plugin.Log!.Info("HookManager: Enabled All Functions");
+            }
+            else
+                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                    attrib.Value(true, false);
         }
 
         public void DisableFunctionHandles(bool doDebug = false)
@@ -71,14 +75,18 @@ namespace xivr.Structures
             // Disable all hooks
             //----
             if (doDebug)
-                Plugin.Log!.Info("HookManager: Disabling All Functions");
-            foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
             {
-                Plugin.Log!.Info($"HookManager: Disabling {attrib.Key}");
-                attrib.Value(false, false);
-            }
-            if (doDebug)
+                Plugin.Log!.Info("HookManager: Disabling All Functions");
+                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                {
+                    Plugin.Log!.Info($"HookManager: Disabling {attrib.Key}");
+                    attrib.Value(false, false);
+                }
                 Plugin.Log!.Info("HookManager: Disabled All Functions");
+            }
+            else
+                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                    attrib.Value(false, false);
         }
 
         public void DisposeFunctionHandles(bool doDebug = false)
@@ -87,14 +95,18 @@ namespace xivr.Structures
             // Disable all hooks
             //----
             if (doDebug)
-                Plugin.Log!.Info("HookManager: Disposing All Functions");
-            foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
             {
-                Plugin.Log!.Info($"HookManager: Disposing {attrib.Key}");
-                attrib.Value(false, true);
-            }
-            if (doDebug)
+                Plugin.Log!.Info("HookManager: Disposing All Functions");
+                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                {
+                    Plugin.Log!.Info($"HookManager: Disposing {attrib.Key}");
+                    attrib.Value(false, true);
+                }
                 Plugin.Log!.Info("HookManager: Disposed All Functions");
+            }
+            else
+                foreach (KeyValuePair<string, HandleStatusDelegate> attrib in functionList)
+                    attrib.Value(false, true);
         }
     }
 }

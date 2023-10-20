@@ -47,4 +47,8 @@ struct stConfiguration
 	bool immersiveFull;
 	bool ultrawideshadows;
 	bool osk;
+	float armMultiplier;
+	bool disableXboxShoulder;
+	float uiOffsetY;
+	unsigned int mouseMultiplyer;
 };

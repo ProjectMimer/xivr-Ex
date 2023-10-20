@@ -74,9 +74,10 @@ namespace xivr.Structures
         public bool doHandIK;
         public float armMultiplier;
         public UInt64 lastUpdate;
+        public float avgControllerRotation;
         public bool doUpdate;
 
-        public stMultiIK(UInt32 wId, UInt32 id, Character* character, Skeleton* skeleton, bool player, Matrix4x4 hmd, Matrix4x4 lhc, Matrix4x4 rhc, bool runHandIK, float armMulti)
+        public stMultiIK(UInt32 wId, UInt32 id, Character* character, Skeleton* skeleton, bool player, Matrix4x4 hmd, Matrix4x4 lhc, Matrix4x4 rhc, bool runHandIK, float armMulti, float avgHCRotation)
         {
             worldId = wId;
             objId = id;
@@ -88,10 +89,11 @@ namespace xivr.Structures
             rhcMatrix = rhc;
             doHandIK = runHandIK;
             armMultiplier = armMulti;
+            avgControllerRotation = avgHCRotation;
             doUpdate = true;
         }
 
-        public void SetTracking(bool player, Matrix4x4 hmd, Matrix4x4 lhc, Matrix4x4 rhc, bool runHandIK, float armMulti)
+        public void SetTracking(bool player, Matrix4x4 hmd, Matrix4x4 lhc, Matrix4x4 rhc, bool runHandIK, float armMulti, float avgHCRotation)
         {
             isPlayer = player;
             hmdMatrix = hmd;
@@ -99,6 +101,7 @@ namespace xivr.Structures
             rhcMatrix = rhc;
             doHandIK = runHandIK;
             armMultiplier = armMulti;
+            avgControllerRotation = avgHCRotation;
             doUpdate = true;
         }
     }

@@ -86,7 +86,7 @@ namespace xivr
         public static extern void SetThreadedEye(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderVR(Matrix4x4 curProjection, Matrix4x4 curViewMatrixWithoutHMD, Matrix4x4 rayMatrix, Matrix4x4 watchMatrix, Point virtualMouse, bool dalamudMode, bool floatingUI);
+        public static extern void RenderVR(Matrix4x4 curProjection, Matrix4x4 curViewMatrixWithoutHMD, Matrix4x4 rayMatrix, Matrix4x4 watchMatrix, Point virtualMouse, float uiAngleOffset, bool dalamudMode, bool floatingUI);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void RenderUI();
