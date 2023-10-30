@@ -64,7 +64,7 @@
     "Name": "ConvenientGraphics",
     "Description": "Changing Graphics and other settings on the fly",
     "InternalName": "ConvenientGraphics",
-    "AssemblyVersion": "0.0.0.6",
+    "AssemblyVersion": "0.0.0.7",
     "RepoUrl": "https://github.com/ProjectMimer/ConvenientGraphics",
     "ApplicableVersion": "any",
     "Tags": [
@@ -73,10 +73,10 @@
     "IconUrl": "",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1697877784,
+    "LastUpdated": 1698643937,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.6/ConvenientGraphics.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.6/ConvenientGraphics.zip",
-    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.6/ConvenientGraphics.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.7/ConvenientGraphics.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.7/ConvenientGraphics.zip",
+    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.0.7/ConvenientGraphics.zip"
   }
 ]
