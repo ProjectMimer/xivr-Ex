@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Numerics;
 using System.Collections.Generic;
-using Dalamud.Logging;
 using FFXIVClientStructs.Havok;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
-using Dalamud.Utility.Signatures;
 
 namespace xivr.Structures
 {

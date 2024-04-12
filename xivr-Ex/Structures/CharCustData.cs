@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using Dalamud.Logging;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 
 namespace xivr.Structures

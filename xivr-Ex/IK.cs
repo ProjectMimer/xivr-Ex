@@ -32,6 +32,8 @@ namespace xivr.Structures
         [FieldOffset(0x70)] public Quaternion m_endBoneRotationOffsetLS;
         [FieldOffset(0x80)] public bool m_enforceEndPosition;
         [FieldOffset(0x81)] public bool m_enforceEndRotation;
+        [FieldOffset(0x82)] public unsafe fixed byte m_spacer5[0xA6];
+        [FieldOffset(0x128)] public int m_unkown1;
 
         public hkIKSetup()
         {
@@ -57,6 +59,7 @@ namespace xivr.Structures
             m_endBoneRotationOffsetLS = Quaternion.Identity;
             m_enforceEndPosition = true;
             m_enforceEndRotation = false;
+            m_unkown1 = 1;
         }
     }
 

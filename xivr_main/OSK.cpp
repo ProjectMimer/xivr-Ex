@@ -11,7 +11,6 @@ typedef BOOL(WINAPI* DwmGetDxSharedSurface_td) (
 DwmGetDxSharedSurface_td DwmGetSharedSurface = ((DwmGetDxSharedSurface_td)GetProcAddress(GetModuleHandle(TEXT("USER32")), "DwmGetDxSharedSurface"));
 
 
-
 PROCESSENTRY32 OSK::FindProcess(std::wstring toFind)
 {
 	PROCESSENTRY32 entry;

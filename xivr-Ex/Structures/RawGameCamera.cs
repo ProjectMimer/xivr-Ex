@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using FFXIVClientStructs.Attributes;
-using FFXIVClientStructs.Interop.Attributes;
 
 namespace xivr.Structures
 {

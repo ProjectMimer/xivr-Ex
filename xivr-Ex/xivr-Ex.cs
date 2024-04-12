@@ -133,6 +133,7 @@ namespace xivr
                 ClientState!.Logout += OnLogout;
                 PluginInterface!.UiBuilder.Draw += Draw;
                 PluginInterface!.UiBuilder.OpenConfigUi += ToggleConfig;
+                PluginInterface!.UiBuilder.OpenMainUi += ToggleConfig;
 
                 pluginReady = true;
             }
@@ -543,6 +544,7 @@ namespace xivr
                 ClientState!.Logout -= OnLogout;
                 PluginInterface!.UiBuilder.Draw -= Draw;
                 PluginInterface!.UiBuilder.OpenConfigUi -= ToggleConfig;
+                PluginInterface!.UiBuilder.OpenMainUi -= ToggleConfig;
 
                 WindowSystem.RemoveAllWindows();
                 dalamudErrorWindow.Dispose();

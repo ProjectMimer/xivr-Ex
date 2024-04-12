@@ -41,7 +41,6 @@ namespace xivr.Structures
         }
     }
 
-
     [StructLayout(LayoutKind.Explicit, Size = 0x10)]
     public unsafe struct CameraBase
     {

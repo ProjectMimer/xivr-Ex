@@ -3541,7 +3541,7 @@ namespace xivr
 
                     if (runIKHead)
                     {
-                        //Log!.Info($"ik Y {ikElement->avgHeadHeight}");
+                        //Plugin.Log!.Info($"ik Y {neckOffsetAvg.Average}");
                         ikSetupHead.m_endTargetMS.Y += neckOffsetAvg.Average + 0.25f;
                         twoBoneIKFn!(&lockItem, ikSetupHead, objPose);
                     }
@@ -3561,7 +3561,6 @@ namespace xivr
                         transform = objPose->LocalPose[csb.e_wrist_r];
                         transform.Rotation = Quaternion.CreateFromYawPitchRoll(0, (anglesRHC.Z / 2.0f), 0).Convert();
                         objPose->LocalPose[csb.e_wrist_r] = transform;
-
                         twoBoneIKFn!(&lockItem, ikSetupR, objPose);
                     }
                 }

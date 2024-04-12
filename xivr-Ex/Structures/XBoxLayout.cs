@@ -131,5 +131,4 @@ namespace xivr.Structures
         [FieldOffset(0xB4)] public float left_trigger;
         [FieldOffset(0xB8)] public float right_trigger;
     }
-
 }
