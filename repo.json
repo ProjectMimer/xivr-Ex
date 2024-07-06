@@ -24,7 +24,7 @@
     "Name": "StopTheClip",
     "Description": "Do you want to take close up screenshots? Are you a melee and hate having the boss model disappear on you? Then this is the plugin for you, it overrides the near clip and stops models from hiding on camera collision. This plugin is based on XIVR code. ",
     "InternalName": "StopTheClip",
-    "AssemblyVersion": "0.0.0.7",
+    "AssemblyVersion": "0.0.1.0",
     "RepoUrl": "https://github.com/ProjectMimer/StopTheClip",
     "ApplicableVersion": "any",
     "Tags": [
@@ -33,18 +33,18 @@
     "IconUrl": "",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1696492055,
+    "LastUpdated": 1720251925,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/StopTheClip/0.0.0.7/StopTheClip.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/StopTheClip/0.0.0.7/StopTheClip.zip",
-    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/StopTheClip/0.0.0.7/StopTheClip.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/StopTheClip/0.0.1.0/StopTheClip.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/StopTheClip/0.0.1.0/StopTheClip.zip",
+    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/StopTheClip/0.0.1.0/StopTheClip.zip"
   },
   {
     "Author": "Marulu, StreetRat",
     "Name": "FriendlyFire",
     "Description": "Stops you from miss firing by disabling auto target on ranged jobs",
     "InternalName": "FriendlyFire",
-    "AssemblyVersion": "0.0.0.2",
+    "AssemblyVersion": "0.0.1.0",
     "RepoUrl": "https://github.com/ProjectMimer/FriendlyFire",
     "ApplicableVersion": "any",
     "Tags": [
@@ -53,11 +53,11 @@
     "IconUrl": "",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "LastUpdated": 1696477546,
+    "LastUpdated": 1720251925,
     "DownloadCount": 0,
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/FriendlyFire/0.0.0.2/FriendlyFire.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/FriendlyFire/0.0.0.2/FriendlyFire.zip",
-    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/FriendlyFire/0.0.0.2/FriendlyFire.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/FriendlyFire/0.0.1.0/FriendlyFire.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/FriendlyFire/0.0.1.0/FriendlyFire.zip",
+    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/FriendlyFire/0.0.1.0/FriendlyFire.zip"
   },
   {
     "Author": "Marulu, StreetRat",
