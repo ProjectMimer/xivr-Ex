@@ -82,7 +82,7 @@
   {
     "Author": "Marulu, StreetRat",
     "Name": "MaskedCarnivale",
-    "Description": "Display the game in a separate window",
+    "Description": "Hide plugins while live streaming or recording",
     "InternalName": "MaskedCarnivale",
     "AssemblyVersion": "0.0.0.1",
     "RepoUrl": "https://github.com/ProjectMimer/MaskedCarnivale",
