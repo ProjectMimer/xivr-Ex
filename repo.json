@@ -78,5 +78,25 @@
     "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.1.0/ConvenientGraphics.zip",
     "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.1.0/ConvenientGraphics.zip",
     "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/ConvenientGraphics/0.0.1.0/ConvenientGraphics.zip"
+  },
+  {
+    "Author": "Marulu, StreetRat",
+    "Name": "MaskedCarnivale",
+    "Description": "Display the game in a separate window",
+    "InternalName": "MaskedCarnivale",
+    "AssemblyVersion": "0.0.0.1",
+    "RepoUrl": "https://github.com/ProjectMimer/MaskedCarnivale",
+    "ApplicableVersion": "any",
+    "Tags": [
+      "utility"
+    ],
+    "IconUrl": "",
+    "IsHide": "False",
+    "IsTestingExclusive": "False",
+    "LastUpdated": 1721024257,
+    "DownloadCount": 0,
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ProjectMimer/releases/main/MaskedCarnivale/0.0.0.1/MaskedCarnivale.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ProjectMimer/releases/main/MaskedCarnivale/0.0.0.1/MaskedCarnivale.zip",
+    "DownloadLinkUpdate":  "https://raw.githubusercontent.com/ProjectMimer/releases/main/MaskedCarnivale/0.0.0.1/MaskedCarnivale.zip"
   }
 ]
