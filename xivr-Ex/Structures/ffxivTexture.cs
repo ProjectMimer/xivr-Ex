@@ -5,7 +5,7 @@ using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 namespace xivr.Structures
 {
     [StructLayout(LayoutKind.Explicit, Size = 168)]
-    public unsafe struct Texture
+    public unsafe struct ffTexture
     {
         [FieldOffset(0x00)] public void* vtbl;
         [FieldOffset(0x08)] public int RefCount;

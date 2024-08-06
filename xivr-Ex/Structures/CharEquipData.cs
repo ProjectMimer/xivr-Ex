@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using static FFXIVClientStructs.FFXIV.Client.Game.Character.DrawDataContainer;
 
 namespace xivr.Structures
 {
@@ -21,16 +22,16 @@ namespace xivr.Structures
 
         public void Save(Character* character)
         {
-            Head.Save(character->DrawData.Head);
-            Body.Save(character->DrawData.Top);
-            Hands.Save(character->DrawData.Arms);
-            Legs.Save(character->DrawData.Legs);
-            Feet.Save(character->DrawData.Feet);
-            Ears.Save(character->DrawData.Ear);
-            Neck.Save(character->DrawData.Neck);
-            Wrist.Save(character->DrawData.Wrist);
-            RRing.Save(character->DrawData.RFinger);
-            LRing.Save(character->DrawData.LFinger);
+            Head.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Head]);
+            Body.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Body]);
+            Hands.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Hands]);
+            Legs.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Legs]);
+            Feet.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Feet]);
+            Ears.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Ears]);
+            Neck.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Neck]);
+            Wrist.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.Wrists]);
+            RRing.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.RFinger]);
+            LRing.Save(character->DrawData.EquipmentModelIds[(int)EquipmentSlot.LFinger]);
         }
     }
 
@@ -40,18 +41,21 @@ namespace xivr.Structures
         [FieldOffset(0)] public uint Data;
         [FieldOffset(0)] public ushort Id;
         [FieldOffset(2)] public byte Variant;
-        [FieldOffset(3)] public byte Dye;
-        public CharEquipSlotData(ushort id, byte variant, byte dye)
+        [FieldOffset(3)] public byte Dye1;
+        [FieldOffset(4)] public byte Dye2;
+        public CharEquipSlotData(ushort id, byte variant, byte dye1, byte dye2)
         {
             Id = id;
             Variant = variant;
-            Dye = dye;
+            Dye1 = dye1;
+            Dye2 = dye2;
         }
         public void Save(EquipmentModelId data)
         {
             Id = data.Id;
             Variant = data.Variant;
-            Dye = data.Stain;
+            Dye1 = data.Stain0;
+            Dye2 = data.Stain1;
         }
     }
 
@@ -79,15 +83,16 @@ namespace xivr.Structures
         [FieldOffset(0)] public ushort Type;
         [FieldOffset(2)] public ushort Id;
         [FieldOffset(4)] public ushort Variant;
-        [FieldOffset(6)] public byte Dye;
-        [FieldOffset(7)] public byte uk1;
+        [FieldOffset(6)] public byte Dye1;
+        [FieldOffset(7)] public byte Dye2;
 
-        public CharWeaponSlotData(ushort type, ushort id, byte variant, byte dye)
+        public CharWeaponSlotData(ushort type, ushort id, byte variant, byte dye1, byte dye2)
         {
             Type = type;
             Id = id;
             Variant = variant;
-            Dye = dye;
+            Dye1 = dye1;
+            Dye2 = dye2;
         }
 
         public void Save(WeaponModelId data)
@@ -95,7 +100,8 @@ namespace xivr.Structures
             Type = data.Type;
             Id = data.Id;
             Variant = data.Variant;
-            Dye = data.Stain;
+            Dye1 = data.Stain0;
+            Dye2 = data.Stain1;
         }
     }
 }

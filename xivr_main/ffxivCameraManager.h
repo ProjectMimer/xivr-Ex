@@ -26,7 +26,7 @@ struct stRawGameCamera
     /* 0x094 */ float RotateY;
     /* 0x098 */ float RotateZ;
     /* 0x09C */ float uk2;
-    /* 0x0A0 */  XMMATRIX ViewMatrix;
+    /* 0x0A0 */ XMMATRIX ViewMatrix;
     /* 0x0E0 */ unsigned long long* BufferData;
     /* 0x0E8 */ byte spcr2[0x104 - 0xE8];
     /* 0x104 */ float CurrentZoom;

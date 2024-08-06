@@ -68,6 +68,7 @@ class BasicRenderer
 	ID3D11BlendState* pBlendState[3] = { nullptr, nullptr, nullptr };
 	ID3D11DepthStencilState* pDepthStateOff = nullptr;
 	ID3D11DepthStencilState* pDepthStateOn = nullptr;
+	ID3D11DepthStencilState* pDepthStateOnRev = nullptr;
 	ID3D11RasterizerState* pRasterizerState = nullptr;
 
 	stMatrixBuffer matrixBuffer = stMatrixBuffer();
@@ -151,11 +152,11 @@ public:
 	void SetRenderTarget(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv);
 	void SetClearColor(ID3D11RenderTargetView* rtv, ID3D11DepthStencilView* dsv, float color[], bool clearDepth = false);
 	void SetBlendIndex(int index);
-	void DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet);
-	void DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet);
-	void DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isOrthog = false, bool moveOrthog = false);
-	void DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth);
-	void DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex);
+	void DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet, bool useDepth, bool isFloating);
+	void DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet, bool useDepth, bool isFloating);
+	void DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isFloating, bool isOrthog = false, bool moveOrthog = false);
+	void DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isFloating);
+	void DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isFloating);
 	void GetUIStatus(bool* status, int count);
 	void Release();
 	bool HasErrors();

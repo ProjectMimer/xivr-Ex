@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "xivr_main", "xivr_main\xivr_main.vcxproj", "{7E662908-03D1-4144-B4AF-73F1A925BFE4}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "xivr-Ex", "xivr-Ex\xivr-Ex.csproj", "{76C28125-7DD5-4A5C-A910-B766022B1D59}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7E662908-03D1-4144-B4AF-73F1A925BFE4} = {7E662908-03D1-4144-B4AF-73F1A925BFE4}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

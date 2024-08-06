@@ -79,14 +79,14 @@ namespace xivr
         {
             if (nameplate != null && (*vrTrgCursor) != null)
             {
-                var npComponent = nameplate->RootNode->Component;
+                var npComponent = nameplate->RootComponentNode->Component;
 
                 var lastChild = npComponent->UldManager.RootNode;
                 while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;
 
                 lastChild->PrevSiblingNode = (AtkResNode*)(*vrTrgCursor);
                 (*vrTrgCursor)->AtkResNode.NextSiblingNode = lastChild;
-                (*vrTrgCursor)->AtkResNode.ParentNode = (AtkResNode*)nameplate->RootNode;
+                (*vrTrgCursor)->AtkResNode.ParentNode = (AtkResNode*)nameplate->RootComponentNode;
 
                 npComponent->UldManager.UpdateDrawNodeList();
             }
@@ -96,7 +96,7 @@ namespace xivr
         {
             if (nameplate != null && (*vrTrgCursor) != null)
             {
-                var npComponent = nameplate->RootNode->Component;
+                var npComponent = nameplate->RootComponentNode->Component;
 
                 var lastChild = npComponent->UldManager.RootNode;
                 while (lastChild->PrevSiblingNode != null) lastChild = lastChild->PrevSiblingNode;

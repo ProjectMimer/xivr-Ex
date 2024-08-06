@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using FFXIVClientStructs.Havok;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
+using FFXIVClientStructs.Havok.Common.Base.Math.Vector;
+using FFXIVClientStructs.Havok.Common.Base.Math.QsTransform;
+using FFXIVClientStructs.Havok.Common.Base.Math.Quaternion;
 using System.Collections.Generic;
 
 namespace xivr.Structures

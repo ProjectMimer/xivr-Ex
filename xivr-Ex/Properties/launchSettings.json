@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "xivr-Ex": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

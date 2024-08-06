@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Numerics;
 using System.Collections.Generic;
-using FFXIVClientStructs.Havok;
+using FFXIVClientStructs.Havok.Common.Base.Math.QsTransform;
+using FFXIVClientStructs.Havok.Common.Base.Math.Quaternion;
+using FFXIVClientStructs.Havok.Animation.Rig;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 
 namespace xivr.Structures

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using FFXIVClientStructs.Havok;
+using FFXIVClientStructs.Havok.Common.Base.Math.Vector;
+using FFXIVClientStructs.Havok.Common.Base.Math.Quaternion;
 
 namespace xivr
 {

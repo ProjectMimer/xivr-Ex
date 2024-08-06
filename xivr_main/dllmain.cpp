@@ -9,10 +9,7 @@ using namespace DirectX;
 
 std::stringstream outputLog;
 stDevice* device = nullptr;
-stRenderTargetManager* rtManager = nullptr;
 stCameraManager* csCameraManager = nullptr;
-D3D11_TEXTURE2D_DESC BackBufferDesc;
-D3D11_TEXTURE2D_DESC DepthBufferDesc;
 
 stScreenLayout screenLayout = stScreenLayout();
 stScreenLayout* oskLayout = nullptr;
@@ -20,18 +17,16 @@ stScreenLayout* oskLayout = nullptr;
 stTexture RenderTexture[6] =	{ stTexture(), stTexture(), stTexture(), stTexture(), stTexture(), stTexture() };
 stTexture DepthTexture[6] =		{ stTexture(), stTexture(), stTexture(), stTexture(), stTexture(), stTexture() };
 stTexture uiRenderTexture[2] =  { stTexture(), stTexture() };
+stTexture* gameBackTexture = nullptr;
 stTexture* gameRenderTexture = nullptr;
 stTexture* gameDepthTexture = nullptr;
-stTexture gameRenderRaw = stTexture();
-stTexture gameDepthRaw = stTexture();
 
 stBasicTexture BackBufferCopy[6] =	{ stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture() };
 stBasicTexture DepthBufferCopy[6] =	{ stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture() };
 stBasicTexture RenderTarget[6] =	{ stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture(), stBasicTexture() };
 stBasicTexture uiRenderTarget[2] =  { stBasicTexture(), stBasicTexture() };
 
-stBasicTexture BackBuffer = stBasicTexture();
-stBasicTexture DepthBuffer = stBasicTexture();
+//stBasicTexture BackBuffer = stBasicTexture();
 stBasicTexture dalamudBuffer = stBasicTexture();
 
 OSK osk = OSK();
@@ -54,9 +49,6 @@ stMatrixSet matrixSet;
 stMonitorLayout monitors;
 inputController steamInput = {};
 std::vector<std::vector<float>> LineRender = std::vector<std::vector<float>>();
-
-int worldID = 70;
-int depthID = 8;
 
 HWND oskHWND;
 HANDLE oskSurface = 0;
@@ -83,8 +75,9 @@ BasicRenderer* rend = new BasicRenderer(&cfg);
 void InitInstance(HANDLE);
 void ExitInstance();
 //void forceFlush(); 
-bool CreateBackbufferClone();
+bool CreateBackbufferClone(stTexture* gameBackBuffer, stTexture* gameRenderBuffer, stTexture* gameDepthBuffer);
 void DestroyBackbufferClone();
+void CreateViewports(int width, int height);
 
 typedef void(__stdcall* UpdateControllerInput)(buttonLayout buttonId, vr::InputAnalogActionData_t analog, vr::InputDigitalActionData_t digital);
 
@@ -94,8 +87,19 @@ InternalLogging PluginLog;
 
 extern "C"
 {
-	__declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned long long rtm, const char* dllPath);
+	__declspec(dllexport) bool SetDX11(unsigned long long struct_device, stTexture* gameBackBuffer, stTexture* gameRenderBuffer, stTexture* gameDepthBuffer);
+	__declspec(dllexport) bool CreateHandTextures(const char* dllPath);
+	__declspec(dllexport) void DestroyHandTextures();
+	__declspec(dllexport) bool vrStart();
+	__declspec(dllexport) void vrStop();
+	__declspec(dllexport) bool renderStart(ID3D11Device* device, ID3D11DeviceContext* context);
+	__declspec(dllexport) void renderStop();
+	__declspec(dllexport) bool CreateBuffers(stTexture* gameBackBuffer, stTexture* gameRenderBuffer, stTexture* gameDepthBuffer);
+	__declspec(dllexport) void DestroyBuffers();
+	__declspec(dllexport) bool CreateTextures(stTexture* gameRenderBuffer, stTexture* gameDepthBuffer);
+	__declspec(dllexport) void DestroyTextures();
 	__declspec(dllexport) void UnsetDX11();
+
 	__declspec(dllexport) stTexture* GetRenderTexture(int curEye);
 	__declspec(dllexport) stTexture* GetDepthTexture(int curEye);
 	__declspec(dllexport) stTexture* GetUIRenderTexture(int curEye);
@@ -107,7 +111,7 @@ extern "C"
 	__declspec(dllexport) fingerHandLayout GetSkeletalPose(poseType poseType);
 	__declspec(dllexport) void SetThreadedEye(int eye);
 	__declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD, XMMATRIX rayMatrix, XMMATRIX watchMatrix, POINT virtualMouse, float uiAngleOffset, bool dalamudMode, bool floatingUI);
-	__declspec(dllexport) void RenderUI();
+	__declspec(dllexport) void RenderUI(stTexture* gameBackBuffer);
 	__declspec(dllexport) void RenderUID(unsigned long long struct_deivce, XMMATRIX curProjection, XMMATRIX curViewMatrixWithoutHMD);
 	__declspec(dllexport) POINT GetBufferSize();
 	__declspec(dllexport) void ResizeWindow(HWND hwnd, int width, int height);
@@ -141,7 +145,6 @@ BOOL APIENTRY DllMain(HMODULE hModule,
 void InitInstance(HANDLE hModule)
 {
 	device = nullptr;
-	rtManager = nullptr;
 	outputLog.str("");
 }
 
@@ -203,7 +206,7 @@ void RunOSKUpdate()
 		osk.CopyOSKTexture(device->Device, device->DeviceContext, &oskTexture);
 }
 
-bool CreateBackbufferClone()
+bool CreateBackbufferClone(stTexture* gameBackBuffer, stTexture* gameRenderBuffer, stTexture* gameDepthBuffer)
 {
 	bool retVal = true;
 	HRESULT result = S_OK;
@@ -214,7 +217,7 @@ bool CreateBackbufferClone()
 		//----
 		// Create the backbuffer copy based on the backbuffer description
 		//----
-		gameRenderTexture->Texture->GetDesc(&BackBufferCopy[i].textureDesc);
+		gameRenderBuffer->Texture->GetDesc(&BackBufferCopy[i].textureDesc);
 		//BackBufferCopy[i].textureDesc.Width *= 2;
 		BackBufferCopy[i].textureDesc.BindFlags |= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 		BackBufferCopy[i].textureDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
@@ -233,12 +236,16 @@ bool CreateBackbufferClone()
 		if (BackBufferCopy[i].pSharedHandle == nullptr)
 			outputLog << "Error creating shared handle " << i << std::endl;
 		if (retVal == false)
+		{
+			forceFlush();
 			return false;
+		}
+			
 
 		//----
 		// Create the depthbuffer copy based on the depthbuffer description
 		//----
-		gameDepthTexture->Texture->GetDesc(&DepthBufferCopy[i].textureDesc);
+		gameDepthBuffer->Texture->GetDesc(&DepthBufferCopy[i].textureDesc);
 		//DepthBufferCopy[i].textureDesc.Width *= 2;
 		DepthBufferCopy[i].textureDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 		if (!DepthBufferCopy[i].Create(device->Device, false, false, true))
@@ -258,12 +265,15 @@ bool CreateBackbufferClone()
 		if (DepthBufferCopy[i].pSharedHandle == nullptr)
 			outputLog << "Error creating shared handle " << i << std::endl;
 		if (retVal == false)
+		{
+			forceFlush();
 			return false;
+		}
 
 		//----
 		// Create the render target based on the backbuffer description
 		//----
-		gameRenderTexture->Texture->GetDesc(&RenderTarget[i].textureDesc);
+		gameRenderBuffer->Texture->GetDesc(&RenderTarget[i].textureDesc);
 		RenderTarget[i].textureDesc.BindFlags |= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 		RenderTarget[i].textureDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 		if (!RenderTarget[i].Create(device->Device, true, true, true))
@@ -279,7 +289,10 @@ bool CreateBackbufferClone()
 		if (RenderTarget[i].pShaderResource == nullptr)
 			outputLog << "Error creating RenderTarget SRV " << i << std::endl;
 		if (retVal == false)
+		{
+			forceFlush();
 			return false;
+		}
 
 	}
 	for (int i = 0; i < 2; i++)
@@ -287,7 +300,7 @@ bool CreateBackbufferClone()
 		//----
 		// Create the ui render target based on the backbuffer description
 		//----
-		gameRenderTexture->Texture->GetDesc(&uiRenderTarget[i].textureDesc);
+		gameRenderBuffer->Texture->GetDesc(&uiRenderTarget[i].textureDesc);
 		uiRenderTarget[i].textureDesc.BindFlags |= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 		if (!uiRenderTarget[i].Create(device->Device, true, true, true))
 		{
@@ -302,10 +315,13 @@ bool CreateBackbufferClone()
 		if (uiRenderTarget[i].pShaderResource == nullptr)
 			outputLog << "Error creating uiRenderTarget SRV " << i << std::endl;
 		if (retVal == false)
+		{
+			forceFlush();
 			return false;
+		}
 	}
 
-	BackBuffer.pTexture->GetDesc(&dalamudBuffer.textureDesc);
+	gameBackBuffer->Texture->GetDesc(&dalamudBuffer.textureDesc);
 	dalamudBuffer.textureDesc.BindFlags |= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	dalamudBuffer.textureDesc.MiscFlags |= D3D11_RESOURCE_MISC_SHARED;
 	if (!dalamudBuffer.Create(device->Device, true, true, true))
@@ -319,7 +335,10 @@ bool CreateBackbufferClone()
 	if (dalamudBuffer.pShaderResource == nullptr)
 		outputLog << "Error creating dalamudBufferSRV " << std::endl;
 	if (retVal == false)
+	{
+		forceFlush();
 		return false;
+	}
 
 	return retVal;
 }
@@ -344,24 +363,257 @@ void DestroyBackbufferClone()
 	dalamudBuffer.Release();
 }
 
-__declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned long long rtm, const char* dllPath)
+void CreateViewports(int width, int height)
+{
+	if (cfg.vLog)
+		outputLog << "Creating Viewport ..";
+
+	int width2 = width / 2;
+	int height2 = height / 2;
+
+	ZeroMemory(&viewports, sizeof(D3D11_VIEWPORT) * 2);
+	viewports[0].TopLeftX = 0.5f;
+	viewports[0].TopLeftY = 0.5f;
+	viewports[0].Width = (float)width2;
+	viewports[0].Height = (float)height;
+	viewports[0].MinDepth = 0.0f;
+	viewports[0].MaxDepth = 1.0f;
+
+	viewports[1].TopLeftX = 0.5f + (float)width2;
+	viewports[1].TopLeftY = 0.5f;
+	viewports[1].Width = (float)width2;
+	viewports[1].Height = (float)height;
+	viewports[1].MinDepth = 0.0f;
+	viewports[1].MaxDepth = 1.0f;
+
+	ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
+	viewports[2].TopLeftX = 0.5f;
+	viewports[2].TopLeftY = 0.5f;
+	viewports[2].Width = (float)width;
+	viewports[2].Height = (float)height;
+	viewports[2].MinDepth = 0.0f;
+	viewports[2].MaxDepth = 1.0f;
+
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+}
+
+__declspec(dllexport) bool CreateHandTextures(const char* dllPath)
+{
+	std::string imgFilePaths[] = {
+			"\\images\\blank.png",		    "\\images\\blank.png",
+			"\\images\\weapon_off.png",     "\\images\\weapon_on.png",
+			"\\images\\recenter_off.png",   "\\images\\recenter_on.png",
+			"\\images\\keyboard_off.png",   "\\images\\keyboard_on.png",
+			"\\images\\blank.png",          "\\images\\blank.png",
+			"\\images\\occlusion_off.png",  "\\images\\occlusion_on.png",
+			"\\images\\xivr_off.png",       "\\images\\xivr_on.png",
+			"\\images\\dalamud_off.png",    "\\images\\dalamud_on.png",
+			"\\images\\hide_ui_off.png",    "\\images\\hide_ui_on.png"
+	};
+
+	for (int i = 0; i < (handWatchCount * 2); i++)
+	{
+		struct stat buffer;
+		std::string fullPath = dllPath + imgFilePaths[i];
+		if (stat(fullPath.c_str(), &buffer) == 0)
+		{
+			if (!handWatchList[i].CreateFromFile(device->Device, false, true, false, fullPath.c_str()))
+				outputLog << handWatchList[i].GetErrors() << std::endl;
+		}
+		else
+			outputLog << "Image not found " << fullPath << std::endl;
+	}
+	return true;
+}
+
+__declspec(dllexport) void DestroyHandTextures()
+{
+	for (int i = 0; i < (handWatchCount * 2); i++)
+		handWatchList[i].Release();
+}
+
+__declspec(dllexport) bool vrStart()
+{
+	if (cfg.vLog)
+	{
+		outputLog << "Starting VR ..";
+		forceFlush();
+	}
+	if (!svr->StartVR())
+	{
+		outputLog << ".. Error starting VR";
+		outputLog << svr->GetErrors();
+		forceFlush();
+		return false;
+	}
+	if (svr->HasErrors())
+	{
+		outputLog << svr->GetErrors();
+		forceFlush();
+	}
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+	setActionHandlesGame(&steamInput);
+	return true;
+}
+
+__declspec(dllexport) void vrStop()
+{
+	if (cfg.vLog)
+		outputLog << "Stopping VR ..";
+	svr->StopVR();
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+}
+
+__declspec(dllexport) bool renderStart(ID3D11Device* device, ID3D11DeviceContext* context)
+{
+	if (cfg.vLog)
+	{
+		outputLog << "Starting Renderer ..";
+		forceFlush();
+	}
+	if (!rend->SetDevice(device, context))
+	{
+		outputLog << ".. Error starting Renderer";
+		outputLog << rend->GetErrors();
+		forceFlush();
+		return false;
+	}
+	if (rend->HasErrors())
+	{
+		outputLog << rend->GetErrors();
+		forceFlush();
+	}
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+	return true;
+}
+
+__declspec(dllexport) void renderStop()
+{
+	if (cfg.vLog)
+		outputLog << "Releasing Renderer ..";
+	rend->Release();
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+}
+
+__declspec(dllexport) bool CreateBuffers(stTexture* gameBackBuffer, stTexture* gameRenderBuffer, stTexture* gameDepthBuffer)
+{
+	if (cfg.vLog)
+	{
+		outputLog << "Creating BackBufferClone ..";
+		forceFlush();
+	}
+
+	if (!CreateBackbufferClone(gameBackBuffer, gameRenderBuffer, gameDepthBuffer))
+	{
+		outputLog << ".. Error creating BackBufferClone" << std::endl;
+		forceFlush();
+		return false;
+	}
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+	return true;
+}
+
+__declspec(dllexport) void DestroyBuffers()
+{
+	if (cfg.vLog)
+		outputLog << "Destroying BackBufferClone ..";
+	DestroyBackbufferClone();
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+}
+
+__declspec(dllexport) bool CreateTextures(stTexture* gameRenderBuffer, stTexture* gameDepthBuffer)
+{
+	if (cfg.vLog)
+	{
+		outputLog << "Creating Textures ..";
+		forceFlush();
+	}
+	for (int i = 0; i < 2; i++)
+	{
+		uiRenderTexture[i] = (*gameRenderBuffer);
+		uiRenderTexture[i].uk5 = 0x90000000 + i;
+		uiRenderTexture[i].Texture = uiRenderTarget[i].pTexture;
+		uiRenderTexture[i].ShaderResourceView = uiRenderTarget[i].pShaderResource;
+		uiRenderTexture[i].itemPtr = new unTexturePtr();
+		uiRenderTexture[i].itemPtr->RenderTargetView = uiRenderTarget[i].pRenderTarget;
+	}
+	for (int i = 0; i < 6; i++)
+	{
+		RenderTexture[i] = (*gameRenderBuffer);
+		RenderTexture[i].RefCount = 0;
+		RenderTexture[i].Texture = RenderTarget[i].pTexture;
+		RenderTexture[i].ShaderResourceView = RenderTarget[i].pShaderResource;
+		RenderTexture[i].itemPtr = new unTexturePtr();
+		RenderTexture[i].itemPtr->RenderTargetView = RenderTarget[i].pRenderTarget;
+		/*
+		RenderTexture[i] = (*gameRenderBuffer);
+		RenderTexture[i].RefCount = 0;
+		RenderTexture[i].Texture = BackBufferCopy[i].pTexture;
+		RenderTexture[i].ShaderResourceView = BackBufferCopy[i].pShaderResource;
+		RenderTexture[i].itemPtr = new unTexturePtr();
+		RenderTexture[i].itemPtr->RenderTargetView = BackBufferCopy[i].pRenderTarget;
+		*/
+		DepthTexture[i] = (*gameDepthBuffer);
+		DepthTexture[i].RefCount = 0;
+		DepthTexture[i].Texture = DepthBufferCopy[i].pTexture;
+		DepthTexture[i].ShaderResourceView = DepthBufferCopy[i].pShaderResource;
+		DepthTexture[i].itemPtr = new unTexturePtr();
+		DepthTexture[i].itemPtr->DepthStencilView = DepthBufferCopy[i].pDepthStencilView;
+	}
+	if (cfg.vLog)
+	{
+		outputLog << ".. Done" << std::endl;
+		forceFlush();
+	}
+	return true;
+}
+
+__declspec(dllexport) void DestroyTextures()
+{
+
+}
+
+
+
+__declspec(dllexport) bool SetDX11(unsigned long long struct_device, stTexture* gameBackBuffer, stTexture* gameRenderBuffer, stTexture* gameDepthBuffer)
 {
 	if(cfg.vLog)
 		outputLog << std::endl << "SetDX11:" << std::endl;
 	if (device == nullptr && enabled == false)
 	{
 		device = (stDevice*)struct_device;
-		rtManager = (stRenderTargetManager*)rtm;
 
 		if (device == nullptr)
 		{
 			outputLog << "ERROR: Can not find device" << std::endl;
-			return false;
-		}
-
-		if (rtManager == nullptr)
-		{
-			outputLog << "ERROR: Can not find rtManager" << std::endl;
 			return false;
 		}
 
@@ -421,228 +673,45 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 
 		if (cfg.vLog)
 		{
-			outputLog << std::hex << "SetDX Dx:" << struct_device << " RndTrg:" << rtm << std::endl;
+			outputLog << std::hex << "SetDX Dx:" << struct_device << std::endl;
 			outputLog << "factory: " << device->IDXGIFactory << std::endl;
 			outputLog << "Dev: " << device->Device << std::endl;
 			outputLog << "DevCon: " << device->DeviceContext << std::endl;
 			outputLog << "Swap: " << device->SwapChain->DXGISwapChain << std::endl;
 			outputLog << "BackBuffer: " << device->SwapChain->BackBuffer << std::endl;
-			outputLog << std::dec << "Device Size: " << device->width << "x" << device->height << " : " << device->newWidth << "x" << device->newHeight << std::endl;
+			outputLog << std::dec << "Device Size: " << device->width << "x" << device->height << " : " << device->width1 << "x" << device->height1 << std::endl;
 			forceFlush();
 		}
-
-		std::string imgFilePaths[] = {
-			"\\images\\blank.png",		    "\\images\\blank.png",
-			"\\images\\weapon_off.png",     "\\images\\weapon_on.png",
-			"\\images\\recenter_off.png",   "\\images\\recenter_on.png",
-			"\\images\\keyboard_off.png",   "\\images\\keyboard_on.png",
-			"\\images\\blank.png",          "\\images\\blank.png",
-			"\\images\\occlusion_off.png",  "\\images\\occlusion_on.png",
-			"\\images\\xivr_off.png",       "\\images\\xivr_on.png",
-			"\\images\\dalamud_off.png",    "\\images\\dalamud_on.png",
-			"\\images\\hide_ui_off.png",    "\\images\\hide_ui_on.png"
-		};
-
-		for (int i = 0; i < (handWatchCount * 2); i++)
-		{
-			struct stat buffer;
-			std::string fullPath = dllPath + imgFilePaths[i];
-			if (stat(fullPath.c_str(), &buffer) == 0)
-			{
-				if (!handWatchList[i].CreateFromFile(device->Device, false, true, false, fullPath.c_str()))
-					outputLog << handWatchList[i].GetErrors() << std::endl;
-			}
-			else
-				outputLog << "Image not found " << fullPath << std::endl;
-		}
+		
 		screenLayout.SetFromSwapchain(device->SwapChain->DXGISwapChain);
-		device->SwapChain->BackBuffer->Texture->GetDesc(&BackBufferDesc);
-		BackBufferDesc.BindFlags |= D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-
-		BackBuffer.textureDesc = BackBufferDesc;
-		BackBuffer.creationType = 2;
-		BackBuffer.pTexture = device->SwapChain->BackBuffer->Texture;
-		BackBuffer.pRenderTarget = device->SwapChain->BackBuffer->itemPtr->RenderTargetView;
 
 		if (cfg.vLog)
 		{
-			outputLog << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::hex << " rendTrgt:" << BackBuffer.pRenderTarget << std::endl;
+			D3D11_TEXTURE2D_DESC BackBufferDesc;
+			device->SwapChain->BackBuffer->Texture->GetDesc(&BackBufferDesc);
+
+			outputLog << std::dec << "BB Desc: u:" << BackBufferDesc.Usage << " f:" << BackBufferDesc.Format << " w:" << BackBufferDesc.Width << " h:" << BackBufferDesc.Height << std::endl;
 			outputLog << std::hex << "BackBuffer: " << device->SwapChain->BackBuffer << " : " << device->SwapChain->BackBuffer->Texture << std::endl;
 			outputLog << std::dec << "BackBuff: " << device->SwapChain->BackBuffer->Width << " : " << device->SwapChain->BackBuffer->Height << " : " << device->SwapChain->BackBuffer->TextureFormat << " : " << std::hex << device->SwapChain->BackBuffer->Flags << std::endl;
 			forceFlush();
 		}
 
-		// 0x1403dc651 | [[ffxiv_dx11.exe+20A9FD0] + 0x3DB8]
-		// sig for 48 8b 0d ?? ?? ?? ?? 8B 81 E4 3F 00 00
-
-		if (useBackBuffer)
-		{
-			gameRenderTexture = new stTexture();
-			gameRenderTexture->Texture = BackBuffer.pTexture;
-			gameRenderTexture->ShaderResourceView = BackBuffer.pShaderResource;
-			gameRenderTexture->itemPtr = new unTexturePtr();
-			gameRenderTexture->itemPtr->RenderTargetView = BackBuffer.pRenderTarget;
-		}
-		else
-			gameRenderTexture = rtManager->RenderTextureArray1[worldID];
-		gameRenderRaw = *gameRenderTexture;
-
-		gameDepthTexture = rtManager->RenderTextureArray1[depthID];
-		gameDepthRaw = *gameDepthTexture;
-
-		gameDepthTexture->Texture->GetDesc(&DepthBufferDesc);
-
-		DepthBuffer.creationType = 2;
-		DepthBuffer.pTexture = rtManager->RenderTextureArray1[depthID]->Texture;
-		DepthBuffer.pDepthStencilView = rtManager->RenderTextureArray1[depthID]->itemPtr->DepthStencilView;
+		gameBackTexture = gameBackBuffer;
+		gameRenderTexture = gameRenderBuffer;
+		gameDepthTexture = gameDepthBuffer;
 
 		if (cfg.vLog)
 		{
+			D3D11_TEXTURE2D_DESC DepthBufferDesc;
+			gameDepthBuffer->Texture->GetDesc(&DepthBufferDesc);
+
 			outputLog << std::dec << "Depth Desc: u:" << DepthBufferDesc.Usage << " f:" << DepthBufferDesc.Format << " w:" << DepthBufferDesc.Width << " h:" << DepthBufferDesc.Height << " b:" << DepthBufferDesc.BindFlags << std::endl;
 			forceFlush();
 		}
 
-		if (cfg.vLog)
-		{
-			outputLog << "Starting VR ..";
-			forceFlush();
-		}
-		if (!svr->StartVR())
-		{
-			outputLog << ".. Error starting VR";
-			outputLog << svr->GetErrors();
-			forceFlush();
-			return false;
-		}
-		if (svr->HasErrors())
-		{
-			outputLog << svr->GetErrors();
-			forceFlush();
-		}
-		if (cfg.vLog)
-		{
-			outputLog << ".. Done" << std::endl;
-			forceFlush();
-		}
 
-		if (cfg.vLog)
-		{
-			outputLog << "Starting Renderer ..";
-			forceFlush();
-		}
-		if (!rend->SetDevice(device->Device, device->DeviceContext))
-		{
-			outputLog << ".. Error starting Renderer";
-			outputLog << rend->GetErrors();
-			forceFlush();
-			return false;
-		}
-		if (rend->HasErrors())
-		{
-			outputLog << rend->GetErrors();
-			forceFlush();
-		}
-		if (cfg.vLog)
-		{
-			outputLog << ".. Done" << std::endl;
-			forceFlush();
-		}
+		CreateViewports(screenLayout.width, screenLayout.height);
 
-		if (cfg.vLog)
-		{
-			outputLog << "Creating BackBufferClone ..";
-			forceFlush();
-		}
-
-		if (!CreateBackbufferClone())
-		{
-			outputLog << ".. Error creating BackBufferClone" << std::endl;
-			forceFlush();
-			return false;
-		}
-		if (cfg.vLog)
-		{
-			outputLog << ".. Done" << std::endl;
-			forceFlush();
-		}
-
-		if (cfg.vLog)
-		{
-			outputLog << "Creating Textures ..";
-			forceFlush();
-		}
-		for (int i = 0; i < 2; i++)
-		{
-			uiRenderTexture[i] = (*gameRenderTexture);
-			uiRenderTexture[i].uk5 = 0x90000000 + i;
-			uiRenderTexture[i].Texture = uiRenderTarget[i].pTexture;
-			uiRenderTexture[i].ShaderResourceView = uiRenderTarget[i].pShaderResource;
-			uiRenderTexture[i].itemPtr = new unTexturePtr();
-			uiRenderTexture[i].itemPtr->RenderTargetView = uiRenderTarget[i].pRenderTarget;
-		}
-		for (int i = 0; i < 6; i++)
-		{
-			RenderTexture[i] = (*gameRenderTexture);
-			RenderTexture[i].RefCount = 0;
-			RenderTexture[i].Texture = RenderTarget[i].pTexture;
-			RenderTexture[i].ShaderResourceView = RenderTarget[i].pShaderResource;
-			RenderTexture[i].itemPtr = new unTexturePtr();
-			RenderTexture[i].itemPtr->RenderTargetView = RenderTarget[i].pRenderTarget;
-			/*
-			RenderTexture[i] = (*gameRenderTexture);
-			RenderTexture[i].RefCount = 0;
-			RenderTexture[i].Texture = BackBufferCopy[i].pTexture;
-			RenderTexture[i].ShaderResourceView = BackBufferCopy[i].pShaderResource;
-			RenderTexture[i].itemPtr = new unTexturePtr();
-			RenderTexture[i].itemPtr->RenderTargetView = BackBufferCopy[i].pRenderTarget;
-			*/
-			DepthTexture[i] = (*gameDepthTexture);
-			DepthTexture[i].RefCount = 0;
-			DepthTexture[i].Texture = DepthBufferCopy[i].pTexture;
-			DepthTexture[i].ShaderResourceView = DepthBufferCopy[i].pShaderResource;
-			DepthTexture[i].itemPtr = new unTexturePtr();
-			DepthTexture[i].itemPtr->DepthStencilView = DepthBufferCopy[i].pDepthStencilView;
-		}
-		if (cfg.vLog)
-		{
-			outputLog << ".. Done" << std::endl;
-			forceFlush();
-		}
-
-		if (cfg.vLog)
-		{
-			outputLog << "Creating Viewport ..";
-			forceFlush();
-		}
-
-		ZeroMemory(&viewports, sizeof(D3D11_VIEWPORT) * 2);
-		viewports[0].TopLeftX = 0.5f;
-		viewports[0].TopLeftY = 0.5f;
-		viewports[0].Width = (float)screenLayout.width;
-		viewports[0].Height = (float)screenLayout.height;
-		viewports[0].MinDepth = 0.0f;
-		viewports[0].MaxDepth = 1.0f;
-
-		viewports[1].TopLeftX = 0.5f + (float)screenLayout.width;
-		viewports[1].TopLeftY = 0.5f;
-		viewports[1].Width = (float)screenLayout.width;
-		viewports[1].Height = (float)screenLayout.height;
-		viewports[1].MinDepth = 0.0f;
-		viewports[1].MaxDepth = 1.0f;
-
-		ZeroMemory(&viewport, sizeof(D3D11_VIEWPORT));
-		viewports[2].TopLeftX = 0.5f;
-		viewports[2].TopLeftY = 0.5f;
-		viewports[2].Width = (float)screenLayout.width;
-		viewports[2].Height = (float)screenLayout.height;
-		viewports[2].MinDepth = 0.0f;
-		viewports[2].MaxDepth = 1.0f;
-
-		if (cfg.vLog)
-		{
-			outputLog << ".. Done" << std::endl;
-			forceFlush();
-		}
 
 		XMVECTOR eyePos = { 0, 0, 0 };
 		XMVECTOR lookAt = { 0, 0, -1 };
@@ -651,7 +720,6 @@ __declspec(dllexport) bool SetDX11(unsigned long long struct_device, unsigned lo
 		matrixSet.gameWorldMatrixFloating = XMMatrixLookAtRH(eyePos, lookAt, viewUp);
 		matrixSet.gameWorldMatrix = matrixSet.gameWorldMatrixFloating;
 
-		setActionHandlesGame(&steamInput);
 		if (cfg.osk)
 			RunOSKEnable();
 		enabled = true;
@@ -671,32 +739,14 @@ __declspec(dllexport) void UnsetDX11()
 {
 	RunOSKDisable();
 
-	for (int i = 0; i < (handWatchCount * 2); i++)
-		handWatchList[i].Release();
-
 	if (cfg.vLog)
 		outputLog << std::endl << "StopDX11" << std::endl;
 	
-	if (cfg.vLog)
-		outputLog << "Destroying BackBufferClone ..";
-	DestroyBackbufferClone();
-	if (cfg.vLog)
-		outputLog << ".. Done" << std::endl;
-
-	if (cfg.vLog)
-		outputLog << "Releasing Renderer ..";
-	rend->Release();
-	if (cfg.vLog)
-		outputLog << ".. Done" << std::endl;
-
-	if (cfg.vLog)
-		outputLog << ".. Done" << std::endl;
-
-	if (cfg.vLog)
-		outputLog << "Stopping VR ..";
-	svr->StopVR();
-	if (cfg.vLog)
-		outputLog << ".. Done" << std::endl;
+	DestroyTextures();
+	DestroyBuffers();
+	renderStop();
+	vrStop();
+	DestroyHandTextures();
 
 	device = nullptr;
 	if (cfg.vLog)
@@ -747,7 +797,6 @@ __declspec(dllexport) void UpdateConfiguration(stConfiguration newConfig)
 	cfg = newConfig;
 	if (svr->isEnabled())
 		svr->MakeIPDOffset();
-
 }
 
 __declspec(dllexport) void SetFramePose()
@@ -773,15 +822,17 @@ __declspec(dllexport) fingerHandLayout GetSkeletalPose(poseType poseType)
 __declspec(dllexport) void SetThreadedEye(int eye)
 {
 	threadedEye = eye;
-	if ((threadedEyeIndexCount % 2) == 0)
-	{
+	//if ((threadedEyeIndexCount % 2) == 0)
+	//{
+		//rend->SetClearColor(nullptr, gameDepthTexture->itemPtr->DepthStencilView, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, true);
 		int sId = backbufferSwap;
 		if(isFloating)
 			device->DeviceContext->CopyResource(RenderTarget[sId + (eye * 3)].pTexture, gameRenderTexture->Texture);
 		else
 			device->DeviceContext->CopyResource(BackBufferCopy[sId + (eye * 3)].pTexture, gameRenderTexture->Texture);
 		device->DeviceContext->CopyResource(DepthBufferCopy[sId + (eye * 3)].pTexture, gameDepthTexture->Texture);
-	}
+		
+	//}
 	threadedEyeIndexCount++;
 }
 
@@ -827,7 +878,6 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 			outputLog << rend->GetErrors();
 			forceFlush();
 		}
-		
 
 		ID3D11ShaderResourceView* watchShaderView[18] =
 		{
@@ -842,7 +892,6 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 			handWatchList[16].pShaderResource, handWatchList[17].pShaderResource,
 		};
 
-
 		for (int i = 0; i < 2; i++)
 		{
 			int curEyeView = (cfg.swapEyesUI) ? swapEyes[i] : i;
@@ -850,35 +899,39 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 
 			matrixSet.projectionMatrix = (XMMATRIX)(svr->GetFramePose(poseType::Projection, curEyeView)._m);
 			matrixSet.eyeMatrix = (cfg.mode2d) ? XMMatrixIdentity() : (XMMATRIX)(svr->GetFramePose(poseType::EyeOffset, curEyeView)._m);
-
+			
 			if (isFloating)
 			{
+				//matrixSet.projectionMatrix.r[2].m128_f32[2] = 0;
+				//matrixSet.projectionMatrix.r[3].m128_f32[2] *= -1;
 				rend->SetClearColor(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, isFloating);
 				rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView);
-				rend->DoRender(viewports[vp], RenderTarget[sId + (i * 3)].pShaderResource, &matrixSet, 1, isFloating, !isFloating);
+				rend->DoRender(viewports[vp], RenderTarget[sId + (i * 3)].pShaderResource, &matrixSet, 1, true, true, !isFloating);
 			}
 			else
 			{
 				//rend->SetClearColor(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, isFloating);
 				rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, DepthBufferCopy[sId + (i * 3)].pDepthStencilView);
+				//rend->SetRenderTarget(BackBufferCopy[sId + (i * 3)].pRenderTarget, NULL);
 				//rend->DoRender(viewports[vp], RenderTarget[sId + (i * 3)].pShaderResource, &matrixSet, 1, isFloating, !isFloating);
 			}
-			rend->DoRenderLine(viewports[vp], &matrixSet);
-			rend->DoRenderRay(viewports[vp], &matrixSet);
+			rend->DoRenderLine(viewports[vp], &matrixSet, cfg.uiDepth, isFloating);
+			rend->DoRenderRay(viewports[vp], &matrixSet, cfg.uiDepth, isFloating);
+
 			if (showUI)
 			{
 				//----
 				// ui uses left eye only so ui elements line up properly
 				//----
-				rend->DoRender(viewports[vp], uiRenderTarget[0].pShaderResource, &matrixSet, 0, cfg.uiDepth);
-				if (!useBackBuffer)
-					rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth);
+				rend->DoRender(viewports[vp], uiRenderTarget[0].pShaderResource, &matrixSet, 0, cfg.uiDepth, isFloating);
+				//if (!useBackBuffer)
+				//	rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 2, cfg.uiDepth, isFloating);
 			}
-			//rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 1, cfg.uiDepth);
-			rend->DoRenderOSK(viewports[vp], oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth);
+			//rend->DoRender(viewports[vp], dalamudBuffer.pShaderResource, &matrixSet, 1, cfg.uiDepth, isFloating);
+			rend->DoRenderOSK(viewports[vp], oskTexture.pShaderResource, &matrixSet, 0, cfg.uiDepth, isFloating);
 			
 			//matrixSet.lhcMatrix
-			rend->DoRenderWatch(viewports[vp], watchShaderView, &matrixSet, 0);
+			rend->DoRenderWatch(viewports[vp], watchShaderView, &matrixSet, 0, cfg.uiDepth, isFloating);
 		}
 
 		svr->Render(BackBufferCopy[sIdL].pTexture, DepthBufferCopy[sIdL].pTexture, BackBufferCopy[sIdR].pTexture, DepthBufferCopy[sIdR].pTexture);
@@ -888,19 +941,19 @@ __declspec(dllexport) void RenderVR(XMMATRIX curProjection, XMMATRIX curViewMatr
 			forceFlush();
 		}
 
-		device->DeviceContext->CopyResource(dalamudBuffer.pTexture, BackBuffer.pTexture);
+		device->DeviceContext->CopyResource(dalamudBuffer.pTexture, gameBackTexture->Texture);
 		RunOSKUpdate();
 	}
 	LineRender.clear();
 	threadedEyeIndexCount = 0;
 }
 
-__declspec(dllexport) void RenderUI()
+__declspec(dllexport) void RenderUI(stTexture* gameBackBuffer)
 {
 	if (enabled)
 	{
-		if (useBackBuffer == false)
-			device->DeviceContext->ClearRenderTargetView(BackBuffer.pRenderTarget, new float[4] { 0.f, 0.f, 0.f, 1.f });
+		if (useBackBuffer == false && gameBackBuffer->itemPtr != 0)
+			device->DeviceContext->ClearRenderTargetView(gameBackBuffer->itemPtr->RenderTargetView, new float[4] { 0.f, 0.f, 0.f, 1.f });
 	}
 }
 
@@ -926,7 +979,7 @@ __declspec(dllexport) void RenderUID(unsigned long long struct_device, XMMATRIX 
 		//rend->SetClearColor(device->SwapChain->BackBuffer->itemPtr->RenderTargetView, NULL, new float[4] { 0.0f, 0.0f, 0.0f, 0.f }, true);
 		rend->SetRenderTarget(device->SwapChain->BackBuffer->itemPtr->RenderTargetView, NULL);
 		rend->RenderLines(LineRender);
-		rend->DoRenderLine(viewport, &matrixSet);
+		rend->DoRenderLine(viewport, &matrixSet, false, false);
 		LineRender.clear();
 	}
 }
@@ -1158,7 +1211,7 @@ __declspec(dllexport) void UpdateController(UpdateControllerInput controllerCall
 		actionSet.ulActionSet = steamInput.game.setHandle;
 		uint32_t setSize = sizeof(actionSet);
 		uint32_t setCount = setSize / sizeof(vr::VRActiveActionSet_t);
-
+		
 		if (vr::VRInput()->UpdateActionState(&actionSet, setSize, setCount) == vr::VRInputError_None)
 		{
 			vr::InputDigitalActionData_t digitalActionData = { 0 };

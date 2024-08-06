@@ -2,6 +2,9 @@
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
+
+using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
+
 using xivr.Structures;
 
 namespace xivr
@@ -51,21 +54,40 @@ namespace xivr
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void UpdateConfiguration(Configuration.cfgData config);
-
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern bool SetDX11(IntPtr Device, IntPtr rtManager, [In, MarshalAs(UnmanagedType.LPUTF8Str)] string dllPath);
-
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern bool SetDX11(IntPtr Device, Texture* gameBackBuffer, Texture* gameRenderBuffer, Texture* gameDepthBuffer);
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern bool CreateHandTextures([In, MarshalAs(UnmanagedType.LPUTF8Str)] string dllPath);
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern void DestroyHandTextures();
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern bool vrStart();
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern void vrStop();
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern bool renderStart(IntPtr device, IntPtr context);
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern void renderStop();
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern bool CreateBuffers(Texture* gameBackBuffer, Texture* gameRenderBuffer, Texture* gameDepthBuffer);
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern void DestroyBuffers();
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern bool CreateTextures(Texture* gameRenderBuffer, Texture* gameDepthBuffer);
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern void DestroyTextures();
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)] 
         public static extern void UnsetDX11();
 
-        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Structures.Texture* GetRenderTexture(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Structures.Texture* GetDepthTexture(int eye);
+        public static extern Texture* GetRenderTexture(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern Structures.Texture* GetUIRenderTexture(int eye);
+        public static extern Texture* GetDepthTexture(int eye);
+
+        [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern Texture* GetUIRenderTexture(int eye);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void Recenter();
@@ -89,7 +111,7 @@ namespace xivr
         public static extern void RenderVR(Matrix4x4 curProjection, Matrix4x4 curViewMatrixWithoutHMD, Matrix4x4 rayMatrix, Matrix4x4 watchMatrix, Point virtualMouse, float uiAngleOffset, bool dalamudMode, bool floatingUI);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void RenderUI();
+        public static extern void RenderUI(Texture* backbuffer);
 
         [DllImport("xivr_main.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void RenderUID(IntPtr Device, Matrix4x4 curProjection, Matrix4x4 curViewMatrixWithoutHMD);

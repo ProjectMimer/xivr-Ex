@@ -168,7 +168,6 @@ xcopy /y /e $(SolutionDir)config $(SolutionDir)xivr-Ex\bin\$(Platform)\$(Configu
     <ClInclude Include="Configuration.h" />
     <ClInclude Include="ffxivCameraManager.h" />
     <ClInclude Include="ffxivDevice.h" />
-    <ClInclude Include="ffxivRenderTargetManager.h" />
     <ClInclude Include="ffxivSwapChain.h" />
     <ClInclude Include="ffxivTexture.h" />
     <ClInclude Include="framework.h" />

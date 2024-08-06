@@ -40,12 +40,13 @@ void simpleVR::InitalizeVR()
 
 bool simpleVR::PreloadVR()
 {
-	if (!vr::VR_IsHmdPresent())
+	
+	/*if (!vr::VR_IsHmdPresent())
 	{
 		//InitalizeVR();
 		_isConnected = false;
 		return _isConnected;
-	}
+	}*/
 
 	vr::EVRInitError eError = vr::VRInitError_None;
 	vr::IVRSystem* localVRSession = vr::VR_Init(&eError, vr::VRApplication_Scene);
@@ -73,16 +74,18 @@ bool simpleVR::PreloadVR()
 	}
 	vr::VR_Shutdown();
 	localVRSession = nullptr;
+
+	return true;
 }
 
 bool simpleVR::StartVR()
 {
-	if (!vr::VR_IsHmdPresent())
+	/*if (!vr::VR_IsHmdPresent())
 	{
 		//InitalizeVR();
 		_isConnected = false;
 		return _isConnected;
-	}
+	}*/
 
 	if (_isConnected == false)
 	{
@@ -479,7 +482,7 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 			struct HmdVector2_t depth.vRange;
 		} VRTextureWithDepth_t;
 		*/
-
+		/*
 		depthRange.v[0] = 0.0f;
 		depthRange.v[1] = 1.0f;
 		
@@ -524,7 +527,7 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 		projMat[1].m[3][1] = projMatrixRaw[1].matrix[1][3];
 		projMat[1].m[3][2] = projMatrixRaw[1].matrix[2][3];
 		projMat[1].m[3][3] = projMatrixRaw[1].matrix[3][3];
-
+		
 		vr::VRTextureWithDepth_t completeDepth[2];
 		completeDepth[0].handle = leftEye;
 		completeDepth[0].eType = vr::TextureType_DirectX;
@@ -535,8 +538,8 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 		completeDepth[1].eType = vr::TextureType_DirectX;
 		completeDepth[1].eColorSpace = vr::ColorSpace_Gamma;
 		completeDepth[1].depth = { rightDepth, projMat[1], depthRange };
-		
-		vr::VRTextureBounds_t _bound = { 0.0f, 0.0f,  1.0f, 1.0f };
+		*/
+		//vr::VRTextureBounds_t _bound = { 0.0f, 0.0f,  1.0f, 1.0f };
 
 		//textureBounds[0] = { 0.0f, 0.0f, 0.5f, 1.0f };
 		//textureBounds[1] = { 0.5f, 0.0f, 1.0f, 1.0f };
@@ -544,14 +547,14 @@ void simpleVR::Render(ID3D11Texture2D* leftEye, ID3D11Texture2D* leftDepth, ID3D
 		//WaitGetPoses();
 
 		vr::EVRCompositorError error = vr::VRCompositorError_None;
-		//error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeTexture[0], &textureBounds[0], vr::Submit_Default);
-		error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeDepth[0], &textureBounds[0], vr::Submit_TextureWithDepth);
+		error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeTexture[0], &textureBounds[0], vr::Submit_Default);
+		//error = vr::VRCompositor()->Submit(vr::Eye_Left, &completeDepth[0], &textureBounds[0], vr::Submit_TextureWithDepth);
 		if (error && cfg->vLog) {
 			logError << "SimpleVR VRCompositor Error: " << std::hex << error << std::endl;
 		}
 
-		//error = vr::VRCompositor()->Submit(vr::Eye_Right, &completeTexture[1], &textureBounds[1], vr::Submit_Default);
-		error = vr::VRCompositor()->Submit(vr::Eye_Right, &completeDepth[1], &textureBounds[1], vr::Submit_TextureWithDepth);
+		error = vr::VRCompositor()->Submit(vr::Eye_Right, &completeTexture[1], &textureBounds[1], vr::Submit_Default);
+		//error = vr::VRCompositor()->Submit(vr::Eye_Right, &completeDepth[1], &textureBounds[1], vr::Submit_TextureWithDepth);
 		if (error && cfg->vLog) {
 			logError << "SimpleVR VRCompositor Error: " << std::hex << error << std::endl;
 		}

@@ -48,9 +48,6 @@
     <ClInclude Include="Configuration.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ffxivRenderTargetManager.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ffxivCameraManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>

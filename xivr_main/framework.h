@@ -6,7 +6,6 @@
 #include <d3d11_4.h>
 #include "stCommon.h"
 #include "ffxivDevice.h"
-#include "ffxivRenderTargetManager.h"
 #include "SteamVRInput.h"
 #include "BasicRenderer.h"
 #include "simpleVR.h"

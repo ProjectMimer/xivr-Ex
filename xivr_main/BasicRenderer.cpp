@@ -433,6 +433,27 @@ float4 PShader(VOut input) : SV_TARGET
 		return false;
 	}
 
+	ZeroMemory(&depthStencilDesc, sizeof(D3D11_DEPTH_STENCIL_DESC));
+	depthStencilDesc.DepthEnable = TRUE;
+	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc.DepthFunc = D3D11_COMPARISON_GREATER_EQUAL;
+	depthStencilDesc.StencilEnable = TRUE;
+	depthStencilDesc.StencilReadMask = 0xFF;
+	depthStencilDesc.StencilWriteMask = 0xFF;
+	depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	result = dev->CreateDepthStencilState(&depthStencilDesc, &pDepthStateOnRev);
+	if (FAILED(result)) {
+		MessageBoxA(0, "Error creating depth State", "Error", MB_OK);
+		return false;
+	}
+
 	D3D11_RASTERIZER_DESC rasterDesc;
 	ZeroMemory(&rasterDesc, sizeof(D3D11_RASTERIZER_DESC));
 	rasterDesc.FillMode = D3D11_FILL_WIREFRAME;
@@ -467,6 +488,7 @@ void BasicRenderer::DestroyShaders()
 	if (pSampleState) { pSampleState->Release(); pSampleState = nullptr; }
 	if (pDepthStateOff) { pDepthStateOff->Release(); pDepthStateOff = nullptr; }
 	if (pDepthStateOn) { pDepthStateOn->Release(); pDepthStateOn = nullptr; }
+	if (pDepthStateOnRev) { pDepthStateOnRev->Release(); pDepthStateOnRev = nullptr; }
 	if (pRasterizerState) { pRasterizerState->Release(); pRasterizerState = nullptr; }
 	if (pBlendState[0]) { pBlendState[0]->Release(); pBlendState[0] = nullptr; }
 	if (pBlendState[1]) { pBlendState[1]->Release(); pBlendState[1] = nullptr; }
@@ -1001,9 +1023,14 @@ void BasicRenderer::SetBlendIndex(int index)
 	blendIndex = index;
 }
 
-void BasicRenderer::DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet)
+void BasicRenderer::DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet, bool useDepth, bool isFloating)
 {
 	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
+	ID3D11DepthStencilState* useDepthState = pDepthStateOff;
+	if (isFloating)
+		useDepthState = pDepthStateOn;
+	else if (useDepth)
+		useDepthState = pDepthStateOnRev;
 
 	//----
 	// Renders the ray
@@ -1016,11 +1043,11 @@ void BasicRenderer::DoRenderRay(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet)
 
 	devcon->RSSetViewports(1, &viewport);
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-	devcon->OMSetDepthStencilState(pDepthStateOn, 0);
+	devcon->OMSetDepthStencilState(useDepthState, 0);
 	rayLine.Render();
 }
 
-void BasicRenderer::DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet)
+void BasicRenderer::DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet, bool useDepth, bool isFloating)
 {
 	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
 	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
@@ -1044,10 +1071,16 @@ void BasicRenderer::DoRenderLine(D3D11_VIEWPORT viewport, stMatrixSet* matrixSet
 
 }
 
-void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isOrthog, bool moveOrthog)
+void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isFloating, bool isOrthog, bool moveOrthog)
 {
 	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
 	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+	ID3D11DepthStencilState* useDepthState = pDepthStateOff;
+	if (isFloating)
+		useDepthState = pDepthStateOn;
+	else if (useDepth)
+		useDepthState = pDepthStateOnRev;
+
 
 	devcon->RSSetViewports(1, &viewport);
 	devcon->PSSetShaderResources(0, 1, &srv);
@@ -1060,7 +1093,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* 
 		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
 
 		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		devcon->OMSetDepthStencilState((useDepth) ? pDepthStateOn : pDepthStateOff, 0);
+		devcon->OMSetDepthStencilState(useDepthState, 0);
 		orthogSquare.Render();
 	}
 	else
@@ -1075,7 +1108,7 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* 
 		MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
 
 		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		devcon->OMSetDepthStencilState((useDepth) ? pDepthStateOn : pDepthStateOff, 0);
+		devcon->OMSetDepthStencilState(useDepthState, 0);
 		curvedUI.Render();
 
 		/*
@@ -1090,10 +1123,15 @@ void BasicRenderer::DoRender(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* 
 	}
 }
 
-void BasicRenderer::DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth)
+void BasicRenderer::DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv, stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isFloating)
 {
 	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrix * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
 	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+	ID3D11DepthStencilState* useDepthState = pDepthStateOff;
+	if (isFloating)
+		useDepthState = pDepthStateOn;
+	else if (useDepth)
+		useDepthState = pDepthStateOnRev;
 
 	devcon->RSSetViewports(1, &viewport);
 	devcon->PSSetShaderResources(0, 1, &srv);
@@ -1109,16 +1147,21 @@ void BasicRenderer::DoRenderOSK(D3D11_VIEWPORT viewport, ID3D11ShaderResourceVie
 	MapResource(pMatrixBuffer, &matrixBuffer, sizeof(stMatrixBuffer));
 
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	devcon->OMSetDepthStencilState((useDepth) ? pDepthStateOn : pDepthStateOff, 0);
+	devcon->OMSetDepthStencilState(useDepthState, 0);
 	osk.Render();
 }
 
 
 
-void BasicRenderer::DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex)
+void BasicRenderer::DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceView* srv[], stMatrixSet* matrixSet, int blendIndex, bool useDepth, bool isFloating)
 {
 	XMMATRIX gameWorldMatrix = matrixSet->gameWorldMatrixFloating * XMMatrixInverse(0, matrixSet->eyeMatrix * matrixSet->hmdMatrix);
 	float blendFactor[4] = { 0.f, 0.f, 0.f, 0.f };
+	ID3D11DepthStencilState* useDepthState = pDepthStateOff;
+	if (isFloating)
+		useDepthState = pDepthStateOn;
+	else if (useDepth)
+		useDepthState = pDepthStateOnRev;
 
 	devcon->RSSetViewports(1, &viewport);
 	devcon->OMSetBlendState(pBlendState[blendIndex], blendFactor, 0xffffffff);
@@ -1143,7 +1186,7 @@ void BasicRenderer::DoRenderWatch(D3D11_VIEWPORT viewport, ID3D11ShaderResourceV
 		int activeOffset = ((handSquareAtUI[i]) ? 1 : 0);
 		devcon->PSSetShaderResources(0, 1, &srv[(i * 2) + activeOffset]);
 		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		devcon->OMSetDepthStencilState(pDepthStateOn, 0);
+		devcon->OMSetDepthStencilState(useDepthState, 0);
 		handSquare[i].Render();
 
 		x++;
